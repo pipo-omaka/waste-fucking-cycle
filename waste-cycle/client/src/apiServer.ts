@@ -284,6 +284,14 @@ export const getAllProducts = () => {
 };
 
 /**
+ * Get aggregated waste flow data for visualizations
+ * Public endpoint: /api/visualization/waste-flow
+ */
+export const getVisualizationWaste = () => {
+  return api.get('/visualization/waste-flow');
+};
+
+/**
  * Get products for the current logged-in user only
  * This endpoint filters by userId - shows only posts belonging to the current user
  * Used in: Profile page, Dashboard

@@ -1,33 +1,83 @@
+// CircularEconomy: show visualizations. Uses backend data when available.
+import { useEffect, useState } from 'react';
 import { TrendingUp, Package, DollarSign, ShoppingCart, Users, Globe, Sprout } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Progress } from './ui/progress';
+import { getVisualizationWaste, getAllProducts } from '../apiServer';
 
 export function CircularEconomy() {
-  // ข้อมูลกราฟเส้น
-  const lineData = [
+  // Small timeseries placeholder (keep until we add a time-series endpoint)
+  const [lineData] = useState<any[]>([
     { month: 'ม.ค.', waste: 180, value: 32000 },
     { month: 'ก.พ.', waste: 210, value: 35000 },
     { month: 'มี.ค.', waste: 195, value: 33000 },
     { month: 'เม.ย.', waste: 240, value: 38000 },
     { month: 'พ.ค.', waste: 280, value: 42000 },
     { month: 'มิ.ย.', waste: 320, value: 48000 },
-  ];
+  ]);
 
-  // ข้อมูลกราฟวงกลม
-  const pieData = [
-    { name: 'มูลโค', value: 40, color: '#10b981' },
-    { name: 'มูลไก่', value: 30, color: '#3b82f6' },
+  // Pie data - will be loaded from backend
+  const [pieData, setPieData] = useState<any[]>([
+    { name: 'มูลโค', value: 45, color: '#10b981' },
+    { name: 'มูลไก่', value: 35, color: '#3b82f6' },
     { name: 'มูลหมู', value: 20, color: '#f59e0b' },
-    { name: 'มูลเป็ด', value: 10, color: '#a855f7' },
-  ];
+  ]);
+
+  // Stats derived from backend
+  const [totalWaste, setTotalWaste] = useState<number | null>(null);
+  const [totalValue, setTotalValue] = useState<number | null>(null);
+  const [totalTransactions, setTotalTransactions] = useState<number | null>(null);
+  const [totalFarms, setTotalFarms] = useState<number | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        // 1) visualization endpoint gives breakdown and quantities
+        const viz = await getVisualizationWaste();
+        const details = viz?.data?.data?.details || {};
+
+        const pie = Object.keys(details).map((k, i) => ({
+          name: k,
+          value: details[k].totalQuantity || 0,
+          color: ['#10b981', '#3b82f6', '#f59e0b', '#a855f7'][i % 4]
+        }));
+
+        const total = pie.reduce((s, p) => s + (p.value || 0), 0);
+
+        // 2) products endpoint for value/transactions and participating farms
+        const productsResp = await getAllProducts();
+        const products = productsResp?.data?.data || [];
+        const value = products.reduce((s: number, p: any) => s + ((p.price || 0) * (p.quantity || 0)), 0);
+        const transactions = products.length;
+        const farms = new Set(products.map((p: any) => String(p.userId || p.uid || p.sellerId || ''))).size;
+
+        if (!mounted) return;
+        setPieData(pie.length ? pie : []);
+        setTotalWaste(total);
+        setTotalValue(value);
+        setTotalTransactions(transactions);
+        setTotalFarms(farms);
+      } catch (err) {
+        console.error('CircularEconomy: failed to load stats', err);
+      } finally {
+        if (mounted) setIsLoadingStats(false);
+      }
+    };
+
+    loadStats();
+    return () => { mounted = false; };
+  }, []);
 
   // ข้อมูลฟาร์มยอดนิยม
   const topFarms = [
     { rank: 1, name: 'ฟาร์มไก่ไข่หนองหงส์', transactions: 45, value: 67500 },
     { rank: 2, name: 'ฟาร์มโคไทยใหญ่', transactions: 38, value: 76000 },
     { rank: 3, name: 'ฟาร์มหมูบุตรา', transactions: 32, value: 57600 },
-    { rank: 4, name: 'ฟาร์มเป็ดนำ้า', transactions: 28, value: 61600 },
+    { rank: 4, name: 'ฟาร์มไก่ภูเก็ต', transactions: 28, value: 61600 },
   ];
 
   return (
@@ -48,10 +98,10 @@ export function CircularEconomy() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">ของเสียรวม (เดือนนี้)</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl">320</span>
+                    <span className="text-3xl">{isLoadingStats ? 'กำลังโหลด...' : (totalWaste != null ? totalWaste.toLocaleString() : '0')}</span>
                     <span className="text-gray-600">ตัน</span>
                   </div>
-                  <p className="text-sm text-green-600 mt-2">+14.3% จากเดือนที่แล้ว</p>
+                  <p className="text-sm text-green-600 mt-2">{isLoadingStats ? '' : '+14.3% จากเดือนที่แล้ว'}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                   <Package className="w-6 h-6 text-green-600" />
@@ -67,10 +117,10 @@ export function CircularEconomy() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">มูลค่า (เดือนนี้)</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl">48,000</span>
+                    <span className="text-3xl">{isLoadingStats ? 'กำลังโหลด...' : (totalValue != null ? `฿${totalValue.toLocaleString()}` : '฿0')}</span>
                     <span className="text-gray-600">บาท</span>
                   </div>
-                  <p className="text-sm text-blue-600 mt-2">+14.3% จากเดือนที่แล้ว</p>
+                  <p className="text-sm text-blue-600 mt-2">{isLoadingStats ? '' : '+14.3% จากเดือนที่แล้ว'}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                   <DollarSign className="w-6 h-6 text-blue-600" />
@@ -86,10 +136,10 @@ export function CircularEconomy() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">รายการซื้อขาย</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl">143</span>
+                    <span className="text-3xl">{isLoadingStats ? 'กำลังโหลด...' : (totalTransactions != null ? totalTransactions.toLocaleString() : '0')}</span>
                     <span className="text-gray-600">ครั้ง</span>
                   </div>
-                  <p className="text-sm text-pink-600 mt-2">+8.3% จากเดือนที่แล้ว</p>
+                  <p className="text-sm text-pink-600 mt-2">{isLoadingStats ? '' : '+8.3% จากเดือนที่แล้ว'}</p>
                 </div>
                 <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
                   <ShoppingCart className="w-6 h-6 text-pink-600" />
@@ -105,10 +155,10 @@ export function CircularEconomy() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">ผู้ใช้งานใหม่</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl">28</span>
+                    <span className="text-3xl">{isLoadingStats ? 'กำลังโหลด...' : (totalFarms != null ? totalFarms.toLocaleString() : '0')}</span>
                     <span className="text-gray-600">ราย</span>
                   </div>
-                  <p className="text-sm text-orange-600 mt-2">+12.0% จากเดือนที่แล้ว</p>
+                  <p className="text-sm text-orange-600 mt-2">{isLoadingStats ? '' : '+12.0% จากเดือนที่แล้ว'}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                   <Users className="w-6 h-6 text-orange-600" />
@@ -184,7 +234,7 @@ export function CircularEconomy() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={(entry) => `${entry.name}: ${entry.value}%`}
+                    label={(entry) => totalWaste ? `${entry.name}: ${((entry.value / (totalWaste || 1)) * 100).toFixed(1)}%` : `${entry.name}: ${entry.value}`}
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
@@ -194,7 +244,7 @@ export function CircularEconomy() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value) => `${value}%`}
+                    formatter={(value) => totalWaste ? `${value} ตัน (${((value/(totalWaste||1))*100).toFixed(1)}%)` : `${value}`}
                     contentStyle={{ 
                       backgroundColor: 'white', 
                       border: '1px solid #e5e7eb',
