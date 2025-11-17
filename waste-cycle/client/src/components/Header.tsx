@@ -9,9 +9,10 @@ interface HeaderProps {
   onLogout: () => void;
   onNavigate: (page: string) => void;
   currentPage: string;
+  unreadChatCount: number; // <-- เพิ่ม prop นี้สำหรับนับจำนวนที่ยังไม่ได้อ่าน
 }
 
-export function Header({ user, onLogout, onNavigate, currentPage }: HeaderProps) {
+export function Header({ user, onLogout, onNavigate, currentPage, unreadChatCount }: HeaderProps) { // <-- รับ prop ใหม่
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (!user) return null;
@@ -91,9 +92,16 @@ export function Header({ user, onLogout, onNavigate, currentPage }: HeaderProps)
                   className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <MessageCircle className="w-5 h-5 text-gray-700" />
-                  <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 min-w-[20px]">
-                    3
-                  </Badge>
+                  
+                  {/* --- TADA! --- */}
+                  {/* เปลี่ยนตรงนี้: แสดง Badge ก็ต่อเมื่อ unreadChatCount > 0 */}
+                  {unreadChatCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 min-w-[20px] flex items-center justify-center">
+                      {unreadChatCount} 
+                    </Badge>
+                  )}
+                  {/* --- END --- */}
+
                 </button>
               )}
 
