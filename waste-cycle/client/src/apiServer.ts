@@ -256,6 +256,21 @@ export const createProfile = async (profileData: {
 };
 
 /**
+ * Update current user's profile
+ * @param profileData - Partial profile fields to update
+ * @returns Updated user profile
+ */
+export const updateProfile = (profileData: {
+  name?: string;
+  farmName?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+}) => {
+  return api.put('/users/profile', profileData);
+};
+
+/**
  * Product API Functions
  */
 

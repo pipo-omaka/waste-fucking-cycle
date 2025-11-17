@@ -56,6 +56,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
       id: userId,
       uid: userId,
       email: userData.email || req.user.email || '',
+      phone: userData.phone || '',
       name: userData.name || userData.displayName || '',
       role: userData.role || 'user',
       farmName: userData.farmName || '',
@@ -79,7 +80,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
  */
 const createUserProfile = asyncHandler(async (req, res) => {
   console.log('🔍 createUserProfile called');
-  const { name, farmName, role } = req.body;
+  const { name, farmName, role, phone } = req.body;
   
   // CRITICAL: req.user.uid comes from verifyToken middleware (decodedToken.uid)
   if (!req.user || !req.user.uid) {
@@ -131,6 +132,7 @@ const createUserProfile = asyncHandler(async (req, res) => {
     email: req.user.email || '', 
     name: name || req.user.displayName || req.user.email?.split('@')[0] || 'ผู้ใช้',
     farmName: farmName || '',
+    phone: phone || '',
     role: role || 'user',
     verified: false,
     createdAt: new Date().toISOString(),
@@ -155,7 +157,7 @@ const createUserProfile = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const { name, farmName, location } = req.body;
+  const { name, farmName, location, phone, email } = req.body;
   
   // CRITICAL: req.user.uid comes from verifyToken middleware (decodedToken.uid)
   if (!req.user || !req.user.uid) {
@@ -178,6 +180,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     name: name !== undefined ? name : userDoc.data().name,
     farmName: farmName !== undefined ? farmName : userDoc.data().farmName,
     location: location !== undefined ? location : userDoc.data().location,
+    phone: phone !== undefined ? phone : userDoc.data().phone,
+    email: email !== undefined ? email : userDoc.data().email,
     updatedAt: new Date().toISOString(),
   };
 
