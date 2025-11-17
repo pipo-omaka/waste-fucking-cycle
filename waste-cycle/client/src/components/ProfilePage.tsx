@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User, Post } from '../App';
-import { getMyProfile, updateProfile } from '../apiServer';
+import { getMyProfile, updateProfile, getUserBookings } from '../apiServer';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface ProfilePageProps {
@@ -123,24 +123,29 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete, onUpd
     }
   };
 
-  const transactions = [
-    {
-      id: '1',
-      icon: <Package className="w-10 h-10 text-green-600" />,
-      title: 'ปุ๋ยมูลไก่พร้อมใช้',
-      subtitle: 'ฟาร์มไก่ไข่ภูเก็ต · 300 กก. · 15 พ.ค. 2024',
-      status: 'สำเร็จ',
-      statusColor: 'bg-green-100 text-green-800',
-    },
-    {
-      id: '2',
-      icon: <Package className="w-10 h-10 text-green-600" />,
-      title: 'มูลโคหมักคุณภาพดี',
-      subtitle: 'ฟาร์มโคนมสุรินทร์ · 500 กก. · 10 พ.ค. 2024',
-      status: 'สำเร็จ',
-      statusColor: 'bg-green-100 text-green-800',
-    },
-  ];
+  // Booking history loaded from backend (both bought and sold)
+  const [bookings, setBookings] = useState<{ bought: any[]; sold: any[] }>({ bought: [], sold: [] });
+  const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBookings = async () => {
+      if (!user || !(user as any).uid) return;
+      setIsBookingsLoading(true);
+      try {
+        const resp = await getUserBookings(String((user as any).uid));
+        const data = resp?.data?.data || { bought: [], sold: [] };
+        if (mounted) setBookings({ bought: data.bought || [], sold: data.sold || [] });
+      } catch (err) {
+        console.error('Failed to load bookings for profile:', err);
+      } finally {
+        if (mounted) setIsBookingsLoading(false);
+      }
+    };
+
+    loadBookings();
+    return () => { mounted = false; };
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -378,18 +383,54 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete, onUpd
           </TabsContent>
 
           <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>รายการซื้อขายล่าสุด</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {transactions.map(transaction => (
-                    <TransactionCard key={transaction.id} transaction={transaction} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>รายการซื้อขายล่าสุด</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {isBookingsLoading ? (
+                      <div className="py-6 text-center text-gray-500">กำลังโหลดประวัติ...</div>
+                    ) : (bookings.sold.length === 0 && bookings.bought.length === 0) ? (
+                      <div className="py-12 text-center text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>ยังไม่มีประวัติการซื้อขาย</p>
+                      </div>
+                    ) : (
+                      // Show sold first then bought
+                      <div className="space-y-3">
+                        {bookings.sold.map(b => (
+                          <TransactionCard
+                            key={`sold-${b.id}`}
+                            transaction={{
+                              id: `sold-${b.id}`,
+                              icon: <Package className="w-10 h-10 text-green-600" />,
+                              title: b.productTitle || b.productId || b.farmName || 'สินค้า',
+                              subtitle: `${b.quantity || ''} ${b.unit || 'กก.'} · ${b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('th-TH') : ''}`,
+                              status: b.status || 'unknown',
+                              statusColor: b.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800',
+                            }}
+                          />
+                        ))}
+
+                        {bookings.bought.map(b => (
+                          <TransactionCard
+                            key={`bought-${b.id}`}
+                            transaction={{
+                              id: `bought-${b.id}`,
+                              icon: <Package className="w-10 h-10 text-blue-600" />,
+                              title: b.productTitle || b.productId || b.farmName || 'สินค้า',
+                              subtitle: `${b.quantity || ''} ${b.unit || 'กก.'} · ${b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('th-TH') : ''}`,
+                              status: b.status || 'unknown',
+                              statusColor: b.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
           </TabsContent>
 
           <TabsContent value="reviews">
