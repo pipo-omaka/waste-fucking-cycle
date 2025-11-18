@@ -344,6 +344,10 @@ export const createChatRoom = (productId: string) => {
   return api.post('/chat', { productId });
 };
 
+export const deleteChatRoom = (chatId: string) => {
+  return api.delete(`/chat/${chatId}`);
+};
+
 /**
  * Booking API Functions
  */

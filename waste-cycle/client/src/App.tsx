@@ -753,6 +753,9 @@ export default function App() {
               onConfirmSale={handleConfirmSale}
               initialRoomId={selectedRoomId}
               onCancelChat={handleCancelChat}
+              onDeleteChatRoom={(roomId: string) => {
+                setChatRooms(prev => prev.filter(r => r.id !== roomId));
+              }}
             />
           </>
         )}
