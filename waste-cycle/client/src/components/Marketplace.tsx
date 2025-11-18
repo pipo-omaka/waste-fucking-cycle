@@ -358,14 +358,12 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
 
         {/* Action Buttons */}
         <div className="flex gap-2 mt-4">
-          <Button 
-            variant="ghost"
-            size="sm"
-            className="flex-1 text-left font-medium"
+          <button
+            className="border border-gray-300 px-3 py-1.5 rounded-md font-medium bg-white text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition flex-1 text-center"
             onClick={() => onViewDetail(post.id)}
           >
             ดูข้อมูล
-          </Button>
+          </button>
 
           {isMyPost ? (
             <>
