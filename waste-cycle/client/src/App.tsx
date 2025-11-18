@@ -570,12 +570,23 @@ export default function App() {
    * Handle confirming a sale
    * Updates the post's sold status in both allPosts and myPosts
    */
-  const handleConfirmSale = (postId: string, roomId: string) => {
-    // Update in allPosts (for Marketplace view)
-    setAllPosts(prev => prev.map(p => p.id === postId ? { ...p, sold: true } : p));
-    // Update in myPosts (for Profile/Dashboard view) if it's user's own post
-    setMyPosts(prev => prev.map(p => p.id === postId ? { ...p, sold: true } : p));
-    setConfirmedChatRooms(prev => new Set([...prev, roomId]));
+  const handleConfirmSale = async (postId: string, roomId: string) => {
+    try {
+      // Update backend
+      await updateProduct(postId, { sold: true });
+      // Refresh posts from backend to ensure UI is in sync
+      await fetchAllData();
+      // Mark this chat room as confirmed
+      setConfirmedChatRooms(prev => new Set([...prev, roomId]));
+      // Show success notification
+      alert('ยืนยันการขายสำเร็จ! สถานะโพสต์นี้เปลี่ยนเป็น "ขายแล้ว"');
+      // Navigate to chat view and select the confirmed room
+      setSelectedRoomId(roomId);
+      setCurrentPage('chat');
+    } catch (err) {
+      console.error('Failed to confirm sale:', err);
+      alert('เกิดข้อผิดพลาดในการยืนยันการขาย กรุณาลองใหม่');
+    }
   };
 
   /**
