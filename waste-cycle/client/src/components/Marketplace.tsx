@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Filter, Plus, MapPin, Eye, Edit, Trash2, MessageCircle, Calendar, Package } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -9,6 +9,7 @@ import { Label } from './ui/label';
 import { Slider } from './ui/slider';
 import type { User, Post } from '../App';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { getAllProducts } from '../apiServer';
 
 interface MarketplaceProps {
   user: User;
@@ -26,6 +27,9 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
   const [maxDistance, setMaxDistance] = useState([50]);
   const [sortBy, setSortBy] = useState('distance');
   const [showFilters, setShowFilters] = useState(true);
+  const [remotePosts, setRemotePosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // CRITICAL FIX: Use String() for comparison to handle type mismatches
   // This ensures userId comparison works correctly even after server restart
@@ -35,6 +39,29 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
   
   const allPosts = [...myPosts, ...otherPosts];
   const marketplacePosts = otherPosts;
+
+  // Fetch posts from backend when component mounts
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getAllProducts();
+        // server returns { success: true, data: products }
+        const products = res.data?.data || [];
+        if (mounted) setRemotePosts(products);
+      } catch (err: any) {
+        console.error('Failed to load products:', err);
+        if (mounted) setError(err?.message || 'Failed to load products');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // Apply filters
   const filterPosts = (postsToFilter: Post[]) => {
@@ -46,7 +73,14 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
     }
 
     // Filter by distance
-    filtered = filtered.filter(post => post.distance <= maxDistance[0]);
+    // Be robust: coerce distance to number and keep posts with unknown distance
+    const max = Array.isArray(maxDistance) ? Number(maxDistance[0]) : Number(maxDistance);
+    filtered = filtered.filter(post => {
+      const d = Number(post.distance);
+      // If distance is missing or invalid, keep the post (assume unknown distance)
+      if (Number.isNaN(d)) return true;
+      return d <= max;
+    });
 
     // Sort
     if (sortBy === 'distance') {
@@ -62,8 +96,12 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
     return filtered;
   };
 
-  const displayAllPosts = activeTab === 'all' ? filterPosts(allPosts) : allPosts;
-  const displayMarketplacePosts = activeTab === 'marketplace' ? filterPosts(marketplacePosts) : marketplacePosts;
+  // Prefer parent-provided posts if available, otherwise use remotePosts from backend
+  const sourceAllPosts = (posts && posts.length > 0) ? allPosts : remotePosts;
+  const sourceMarketplacePosts = (posts && posts.length > 0) ? marketplacePosts : remotePosts;
+
+  const displayAllPosts = activeTab === 'all' ? filterPosts(sourceAllPosts) : sourceAllPosts;
+  const displayMarketplacePosts = activeTab === 'marketplace' ? filterPosts(sourceMarketplacePosts) : sourceMarketplacePosts;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -149,7 +187,13 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
           {/* All Posts Tab */}
           <TabsContent value="all">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayAllPosts.map(post => (
+              {loading && (
+                <div className="col-span-3 text-center py-12">กำลังโหลดรายการ...</div>
+              )}
+              {error && (
+                <div className="col-span-3 text-center text-red-500 py-12">{error}</div>
+              )}
+              {!loading && !error && displayAllPosts.map(post => (
                 <ModernPostCard 
                   key={post.id} 
                   post={post} 
@@ -176,7 +220,13 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
           {/* Marketplace Tab */}
           <TabsContent value="marketplace">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayMarketplacePosts.map(post => (
+              {loading && (
+                <div className="col-span-3 text-center py-12">กำลังโหลดรายการ...</div>
+              )}
+              {error && (
+                <div className="col-span-3 text-center text-red-500 py-12">{error}</div>
+              )}
+              {!loading && !error && displayMarketplacePosts.map(post => (
                 <ModernPostCard 
                   key={post.id} 
                   post={post} 
@@ -226,19 +276,27 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
   return (
     <Card className="overflow-hidden hover:shadow-xl transition-shadow">
       {/* Image Section */}
-      <div className="relative h-48 bg-gradient-to-br from-green-100 to-blue-100">
+      <div className="relative h-48 bg-gradient-to-br from-green-100 to-blue-100 overflow-hidden">
         {post.images && Array.isArray(post.images) && post.images.length > 0 && post.images[0] ? (
           <ImageWithFallback 
             src={post.images[0]} 
             alt={post.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Package className="w-16 h-16 text-gray-300" />
           </div>
         )}
-        
+
+        {/* Gradient overlay for better text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+
+        {/* Price badge */}
+        <div className="absolute left-3 top-3 bg-white/90 text-green-700 font-semibold px-3 py-1 rounded-lg shadow">
+          ฿{post.price}
+        </div>
+
         {/* Status Badge - Always show, priority: Sold > Chatting > Verified > Pending */}
         {post.sold ? (
           <Badge className="absolute top-3 right-3 bg-red-500 text-white shadow-lg">
@@ -261,8 +319,8 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
 
       <CardContent className="p-4">
         {/* Title */}
-        <h3 className="text-lg mb-1">{post.title}</h3>
-        <p className="text-sm text-gray-600 mb-3">{post.farmName}</p>
+        <h3 className="text-lg mb-1 font-semibold">{post.title}</h3>
+        <p className="text-sm text-gray-500 mb-3">{post.farmName}</p>
 
         {/* Location */}
         <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
@@ -287,9 +345,9 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
         </div>
 
         {/* Price and Quantity */}
-        <div className="flex items-end justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-2xl text-green-600">฿{post.price}</p>
+            <p className="text-xl text-green-600 font-bold">฿{post.price}</p>
             <p className="text-xs text-gray-500">ต่อ กก.</p>
           </div>
           <div className="text-right">
@@ -300,53 +358,31 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {isMyPost && showAllActions ? (
+          <Button 
+            variant="ghost"
+            size="sm"
+            className="flex-1 text-left font-medium"
+            onClick={() => onViewDetail(post.id)}
+          >
+            ดูข้อมูล
+          </Button>
+
+          {isMyPost ? (
             <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1"
-                onClick={() => onViewDetail(post.id)}
-              >
-                ดูข้อมูล
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onEdit(post.id)}
-              >
+              <Button variant="outline" size="sm" onClick={() => onEdit(post.id)}>
                 <Edit className="w-4 h-4" />
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleDelete}
-              >
-                <Trash2 className="w-4 h-4 text-red-600" />
+              <Button variant="destructive" size="sm" onClick={handleDelete}>
+                <Trash2 className="w-4 h-4" />
               </Button>
             </>
           ) : (
             <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1"
-                onClick={() => onViewDetail(post.id)}
-              >
-                ดูข้อมูล
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onChat(post.id)}
-              >
+              <Button variant="outline" size="sm" onClick={() => onChat(post.id)}>
                 <MessageCircle className="w-4 h-4" />
               </Button>
-              <Button 
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Calendar className="w-4 h-4" />
+              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => onViewDetail(post.id)}>
+                นัดรับ
               </Button>
             </>
           )}

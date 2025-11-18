@@ -256,6 +256,21 @@ export const createProfile = async (profileData: {
 };
 
 /**
+ * Update current user's profile
+ * @param profileData - Partial profile fields to update
+ * @returns Updated user profile
+ */
+export const updateProfile = (profileData: {
+  name?: string;
+  farmName?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+}) => {
+  return api.put('/users/profile', profileData);
+};
+
+/**
  * Product API Functions
  */
 
@@ -266,6 +281,14 @@ export const createProfile = async (profileData: {
  */
 export const getAllProducts = () => {
   return api.get('/products/all');
+};
+
+/**
+ * Get aggregated waste flow data for visualizations
+ * Public endpoint: /api/visualization/waste-flow
+ */
+export const getVisualizationWaste = () => {
+  return api.get('/visualization/waste-flow');
 };
 
 /**
@@ -319,6 +342,10 @@ export const sendChatMessage = (chatId: string, text: string) => {
 
 export const createChatRoom = (productId: string) => {
   return api.post('/chat', { productId });
+};
+
+export const deleteChatRoom = (chatId: string) => {
+  return api.delete(`/chat/${chatId}`);
 };
 
 /**

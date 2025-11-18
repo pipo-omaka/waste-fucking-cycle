@@ -48,6 +48,7 @@ export function Dashboard({
   const [mapCenter, setMapCenter] = useState<Location>(defaultCenter);
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Initialize Geocoder when map is loaded
   useEffect(() => {
@@ -90,6 +91,23 @@ export function Dashboard({
     mapRef.current = map;
   };
 
+  const handleMarkerClick = (post: Post) => {
+    setSelectedMarker(post);
+    if (post.location) {
+      setMapCenter(post.location);
+      if (mapRef.current && typeof mapRef.current.panTo === 'function') {
+        mapRef.current.panTo(post.location);
+      }
+    }
+
+    // If the clicked post exists in the user's posts list, scroll its card into view
+    const cardEl = postRefs.current[post.id];
+    if (cardEl && typeof cardEl.scrollIntoView === 'function') {
+      // small delay to allow layout/selection changes
+      setTimeout(() => cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+  };
+
   const renderMap = () => {
     if (loadError) return <div className="text-red-500">Error loading maps. Please check your API key.</div>;
     if (!isLoaded) return <div>Loading map...</div>;
@@ -122,7 +140,7 @@ export function Dashboard({
           <MarkerF
             key={post.id}
             position={post.location}
-            onClick={() => setSelectedMarker(post)}
+            onClick={() => handleMarkerClick(post)}
             title={post.title}
           />
         ))}
@@ -205,21 +223,96 @@ export function Dashboard({
           <CardTitle>โพสต์ของฉัน</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* If selected marker is not in the user's posts, show a transient preview with mini-map */}
+          {selectedMarker && !posts.find(p => p.id === selectedMarker.id) && (
+            <div className="mb-4">
+              <Card className="">
+                <CardHeader>
+                  <CardTitle>พรีวิวโพสต์</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold">{selectedMarker.title}</h3>
+                      <p className="text-sm text-gray-600">{selectedMarker.address}</p>
+                      <p className="text-sm font-semibold text-green-600">{selectedMarker.price} บาท / {selectedMarker.unit}</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => onViewDetail(selectedMarker.id)}>ดูรายละเอียด</Button>
+                      <Button size="sm" onClick={() => handleNavigate(selectedMarker.location)} className="bg-blue-600 hover:bg-blue-700">นำทาง</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setSelectedMarker(null)}>ปิด</Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 h-40 w-full rounded overflow-hidden">
+                    {loadError ? (
+                      <div className="text-red-500">Error loading maps. Please check your API key.</div>
+                    ) : (!isLoaded ? (
+                      <div>Loading map...</div>
+                    ) : (
+                      <GoogleMap
+                        mapContainerStyle={{ width: '100%', height: '100%' }}
+                        center={selectedMarker.location}
+                        zoom={15}
+                        options={{ disableDefaultUI: true }}
+                      >
+                        <MarkerF position={selectedMarker.location} />
+                      </GoogleMap>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {posts.length === 0 ? (
             <p className="text-gray-500">คุณยังไม่มีโพสต์</p>
           ) : (
             <div className="space-y-4">
               {posts.map(post => (
-                <div key={post.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">{post.title}</h3>
-                    <p className="text-sm text-gray-600">{post.price} บาท / {post.unit} ({post.address})</p>
+                <div
+                  key={post.id}
+                  ref={(el) => { postRefs.current[post.id] = el; }}
+                  className="flex flex-col p-3 bg-gray-50 rounded-lg"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold">{post.title}</h3>
+                      <p className="text-sm text-gray-600">{post.price} บาท / {post.unit} ({post.address})</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => onViewDetail(post.id)}><Eye className="w-4 h-4" /></Button>
+                      <Button variant="outline" size="sm" onClick={() => onEdit(post.id)}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="destructive" size="sm" onClick={() => onDelete(post.id)}><Trash className="w-4 h-4" /></Button>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => onViewDetail(post.id)}><Eye className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => onEdit(post.id)}><Edit className="w-4 h-4" /></Button>
-                    <Button variant="destructive" size="sm" onClick={() => onDelete(post.id)}><Trash className="w-4 h-4" /></Button>
-                  </div>
+
+                  {/* Inline map preview when this post is selected */}
+                  {selectedMarker?.id === post.id && (
+                    <div className="mt-3 h-40 w-full rounded overflow-hidden relative">
+                      <button
+                        onClick={() => setSelectedMarker(null)}
+                        className="absolute right-2 top-2 z-10 bg-white rounded-full p-1 shadow"
+                        aria-label="Close preview"
+                      >
+                        ×
+                      </button>
+
+                      {loadError ? (
+                        <div className="text-red-500">Error loading maps. Please check your API key.</div>
+                      ) : (!isLoaded ? (
+                        <div>Loading map...</div>
+                      ) : (
+                        <GoogleMap
+                          mapContainerStyle={{ width: '100%', height: '100%' }}
+                          center={post.location}
+                          zoom={15}
+                          options={{ disableDefaultUI: true }}
+                        >
+                          <MarkerF position={post.location} />
+                        </GoogleMap>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

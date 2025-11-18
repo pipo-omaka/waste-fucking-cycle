@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapPin, Phone, Mail, Calendar, Star, Package, TrendingUp, Edit, Save, X, Eye, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User, Post } from '../App';
+import { getMyProfile, updateProfile, getUserBookings } from '../apiServer';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface ProfilePageProps {
@@ -15,6 +16,7 @@ interface ProfilePageProps {
   onViewDetail: (postId: string) => void;
   onEdit: (postId: string) => void;
   onDelete: (postId: string) => void;
+  onUpdateUser?: (updatedUser: User) => void; // optional callback to notify parent of updates
 }
 
 /**
@@ -29,40 +31,121 @@ interface ProfilePageProps {
  * - If "นางเอก" logs in → sees only posts where userId === "นางเอก's userId"
  * - If "นายบี" logs in → sees only posts where userId === "นายบี's userId"
  */
-export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete }: ProfilePageProps) {
+export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete, onUpdateUser }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({
     name: user.name,
     farmName: user.farmName || '',
     email: user.email,
-    phone: '081-234-5678',
-    location: 'นครปฐม',
+    phone: (user as any).phone ?? '',
+    location: (user as any).location ?? '',
   });
 
-  const handleSave = () => {
-    // In real app, this would update the database
-    alert('บันทึกข้อมูลสำเร็จ!');
-    setIsEditing(false);
+  // Keep edited form in sync if `user` prop changes (prevents stale mock defaults)
+  useEffect(() => {
+    setEditedData({
+      name: user.name,
+      farmName: user.farmName || '',
+      email: user.email,
+      phone: (user as any).phone ?? '',
+      location: (user as any).location ?? '',
+    });
+  }, [user]);
+
+  // Rating state - prefer `user.rating` if present, otherwise fetch profile from backend
+  const [rating, setRating] = useState<number | null>(
+    (user as any).rating != null ? Number((user as any).rating) : null
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      try {
+        const resp = await getMyProfile();
+        const r = resp?.data?.user?.rating ?? resp?.data?.rating ?? null;
+        if (mounted && r != null) {
+          setRating(Number(r));
+        }
+      } catch (err) {
+        console.error('Failed to load profile for rating:', err);
+      }
+    };
+
+    // If we already have rating from prop, keep it; otherwise fetch
+    if (rating == null) {
+      loadProfile();
+    }
+
+    return () => { mounted = false; };
+  }, [user]);
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Send updated profile to backend
+      const payload = {
+        name: editedData.name,
+        farmName: editedData.farmName,
+        email: editedData.email,
+        phone: editedData.phone,
+        location: editedData.location,
+      };
+
+      const resp = await updateProfile(payload);
+
+      // If backend returns updated user, prefer that
+      const updatedUser = resp?.data?.user ?? { ...user, ...payload };
+
+      // Notify parent if callback provided
+      if (typeof onUpdateUser === 'function') {
+        onUpdateUser(updatedUser as User);
+      }
+
+      // Refresh local rating from backend (in case it's changed)
+      try {
+        const fresh = await getMyProfile();
+        const r = fresh?.data?.user?.rating ?? fresh?.data?.rating ?? null;
+        if (r != null) setRating(Number(r));
+      } catch (err) {
+        // ignore
+      }
+
+      setIsEditing(false);
+      alert('บันทึกข้อมูลสำเร็จ!');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      alert('ไม่สามารถบันทึกข้อมูลได้ กรุณาลองอีกครั้ง');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const transactions = [
-    {
-      id: '1',
-      icon: <Package className="w-10 h-10 text-green-600" />,
-      title: 'ปุ๋ยมูลไก่พร้อมใช้',
-      subtitle: 'ฟาร์มไก่ไข่ภูเก็ต · 300 กก. · 15 พ.ค. 2024',
-      status: 'สำเร็จ',
-      statusColor: 'bg-green-100 text-green-800',
-    },
-    {
-      id: '2',
-      icon: <Package className="w-10 h-10 text-green-600" />,
-      title: 'มูลโคหมักคุณภาพดี',
-      subtitle: 'ฟาร์มโคนมสุรินทร์ · 500 กก. · 10 พ.ค. 2024',
-      status: 'สำเร็จ',
-      statusColor: 'bg-green-100 text-green-800',
-    },
-  ];
+  // Booking history loaded from backend (both bought and sold)
+  const [bookings, setBookings] = useState<{ bought: any[]; sold: any[] }>({ bought: [], sold: [] });
+  const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBookings = async () => {
+      if (!user || !(user as any).uid) return;
+      setIsBookingsLoading(true);
+      try {
+        const resp = await getUserBookings(String((user as any).uid));
+        const data = resp?.data?.data || { bought: [], sold: [] };
+        if (mounted) setBookings({ bought: data.bought || [], sold: data.sold || [] });
+      } catch (err) {
+        console.error('Failed to load bookings for profile:', err);
+      } finally {
+        if (mounted) setIsBookingsLoading(false);
+      }
+    };
+
+    loadBookings();
+    return () => { mounted = false; };
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -133,9 +216,9 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete }: Pro
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+                      <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700" disabled={isSaving}>
                         <Save className="w-4 h-4 mr-2" />
-                        บันทึก
+                        {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
                       </Button>
                       <Button variant="outline" onClick={() => setIsEditing(false)}>
                         <X className="w-4 h-4 mr-2" />
@@ -187,11 +270,11 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete }: Pro
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="bg-yellow-50">
-            <CardContent className="pt-6 text-center">
-              <Star className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
-              <p className="text-4xl text-yellow-600 mb-2">4.8</p>
-              <p className="text-gray-600">คะแนนเฉลี่ย</p>
-            </CardContent>
+              <CardContent className="pt-6 text-center">
+                <Star className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                <p className="text-4xl text-yellow-600 mb-2">{rating != null ? rating.toFixed(1) : '0.0'}</p>
+                <p className="text-gray-600">คะแนนเฉลี่ย</p>
+              </CardContent>
           </Card>
 
           <Card className="bg-blue-50">
@@ -205,7 +288,7 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete }: Pro
           <Card className="bg-green-50">
             <CardContent className="pt-6 text-center">
               <TrendingUp className="w-12 h-12 text-green-600 mx-auto mb-3" />
-              <p className="text-4xl text-green-600 mb-2">4</p>
+              <p className="text-4xl text-green-600 mb-2">0</p>
               <p className="text-gray-600">เครือข่ายธุรกิจ</p>
             </CardContent>
           </Card>
@@ -300,18 +383,54 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete }: Pro
           </TabsContent>
 
           <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>รายการซื้อขายล่าสุด</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {transactions.map(transaction => (
-                    <TransactionCard key={transaction.id} transaction={transaction} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>รายการซื้อขายล่าสุด</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {isBookingsLoading ? (
+                      <div className="py-6 text-center text-gray-500">กำลังโหลดประวัติ...</div>
+                    ) : (bookings.sold.length === 0 && bookings.bought.length === 0) ? (
+                      <div className="py-12 text-center text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>ยังไม่มีประวัติการซื้อขาย</p>
+                      </div>
+                    ) : (
+                      // Show sold first then bought
+                      <div className="space-y-3">
+                        {bookings.sold.map(b => (
+                          <TransactionCard
+                            key={`sold-${b.id}`}
+                            transaction={{
+                              id: `sold-${b.id}`,
+                              icon: <Package className="w-10 h-10 text-green-600" />,
+                              title: b.productTitle || b.productId || b.farmName || 'สินค้า',
+                              subtitle: `${b.quantity || ''} ${b.unit || 'กก.'} · ${b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('th-TH') : ''}`,
+                              status: b.status || 'unknown',
+                              statusColor: b.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800',
+                            }}
+                          />
+                        ))}
+
+                        {bookings.bought.map(b => (
+                          <TransactionCard
+                            key={`bought-${b.id}`}
+                            transaction={{
+                              id: `bought-${b.id}`,
+                              icon: <Package className="w-10 h-10 text-blue-600" />,
+                              title: b.productTitle || b.productId || b.farmName || 'สินค้า',
+                              subtitle: `${b.quantity || ''} ${b.unit || 'กก.'} · ${b.bookingDate ? new Date(b.bookingDate).toLocaleDateString('th-TH') : ''}`,
+                              status: b.status || 'unknown',
+                              statusColor: b.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
           </TabsContent>
 
           <TabsContent value="reviews">

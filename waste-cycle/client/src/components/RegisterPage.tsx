@@ -31,7 +31,6 @@ export function RegisterPage({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [farmName, setFarmName] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -48,8 +47,8 @@ export function RegisterPage({
 
     const profileData: ProfileFormData = {
       name,
-      farmName: isAdmin ? undefined : farmName.trim() || undefined,
-      role: isAdmin ? 'admin' : 'user',
+      farmName: farmName.trim() || undefined,
+      role: 'user',
     };
 
     try {
@@ -148,19 +147,7 @@ export function RegisterPage({
                 </div>
               )}
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="admin"
-                  checked={isAdmin}
-                  onChange={(e) => setIsAdmin(e.target.checked)}
-                  className="rounded"
-                  disabled={isLoading}
-                />
-                <Label htmlFor="admin" className="cursor-pointer">
-                  ลงทะเบียนในฐานะผู้ดูแลระบบ
-                </Label>
-              </div>
+              {/* Admin registration is disabled in the client UI to prevent users from self-assigning admin role */}
 
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded">

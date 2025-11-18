@@ -24,6 +24,6 @@ router.post('/:id/messages', protect, postMessage);
 
 // Chat room routes (less specific - must come after /:id/messages)
 router.get('/:id', protect, getChatRoomById);
-router.delete('/:id', protect, admin, deleteChatRoom);
+router.delete('/:id', protect, deleteChatRoom);
 
 export default router;

@@ -8,7 +8,7 @@
  * - Polling for real-time-like updates
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Send, Search, ArrowLeft, Check, X } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -16,7 +16,7 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import type { User, Post } from '../App';
-import { getChatRooms as apiGetChatRooms, getChatMessages, sendChatMessage, createChatRoom } from '../apiServer';
+import { getChatRooms as apiGetChatRooms, getChatMessages, sendChatMessage, createChatRoom, deleteChatRoom } from '../apiServer';
 import type { ChatRoom, Message } from '../services/chatService';
 import { isUserParticipant } from '../utils/chatUtils';
 
@@ -30,6 +30,7 @@ interface ChatPageProps {
   onBack: () => void;
   onConfirmSale?: (postId: string, roomId: string) => void;
   onCancelChat?: (roomId: string) => void;
+  onDeleteChatRoom?: (roomId: string) => void;
   initialRoomId?: string | null;
 }
 
@@ -43,11 +44,20 @@ export function ChatPage({
   onBack, 
   onConfirmSale, 
   onCancelChat, 
+  onDeleteChatRoom, 
   initialRoomId 
 }: ChatPageProps) {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
     initialRoomId || (chatRooms.length > 0 ? chatRooms[chatRooms.length - 1].id : null)
   );
+
+  // If the selected room is deleted from chatRooms, clear selection to stop polling and prevent repeated DELETEs
+  useEffect(() => {
+    if (selectedRoomId && !chatRooms.some(room => room.id === selectedRoomId)) {
+      setSelectedRoomId(null);
+      setShowChatView(false);
+    }
+  }, [selectedRoomId, chatRooms]);
 
   // Handle initialRoomId prop changes (e.g., from notification clicks)
   useEffect(() => {
@@ -117,8 +127,11 @@ export function ChatPage({
     if (!selectedRoomId) {
       return;
     }
+    const pollIntervalRef = { id: 0 } as { id: number | null };
+    let mounted = true;
 
     const loadMessages = async () => {
+      if (!mounted) return;
       try {
         const response = await getChatMessages(selectedRoomId);
         const msgs = response.data.data || [];
@@ -136,12 +149,40 @@ export function ChatPage({
       }
     };
 
-    loadMessages();
+    // Start polling: call immediately, then every 5s
+    const startPolling = () => {
+      // immediate load
+      loadMessages();
+      // slower polling to reduce backend token verification spam
+      pollIntervalRef.id = window.setInterval(loadMessages, 5000);
+    };
 
-    // Poll for new messages every 2 seconds
-    const pollInterval = setInterval(loadMessages, 2000);
+    // Stop polling helper
+    const stopPolling = () => {
+      if (pollIntervalRef.id) {
+        clearInterval(pollIntervalRef.id);
+        pollIntervalRef.id = null;
+      }
+    };
 
-    return () => clearInterval(pollInterval);
+    // Visibility handling: pause polling when tab hidden
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // resume polling when visible
+        if (!pollIntervalRef.id) startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      mounted = false;
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [selectedRoomId]);
 
   const handleSend = async () => {
@@ -183,6 +224,39 @@ export function ChatPage({
     }
     setSelectedRoomId(null);
     setShowChatView(false);
+  };
+
+  // Delete a chat room by id (can be called from list items)
+  const handleDeleteChatById = async (roomId: string) => {
+    const ok = window.confirm('ต้องการลบการสนทนานี้หรือไม่? การลบจะไม่สามารถย้อนกลับได้');
+    if (!ok) return;
+
+    try {
+      await deleteChatRoom(roomId);
+      // Remove cached messages for that room
+      setChatMessages(prev => {
+        const copy = { ...prev } as Record<string, Message[]>;
+        delete copy[roomId];
+        return copy;
+      });
+
+      // If currently viewing this room, close it
+      if (selectedRoomId === roomId) {
+        setSelectedRoomId(null);
+        setShowChatView(false);
+      }
+
+      // Notify parent to clear selection if possible
+      if (onCancelChat) onCancelChat(roomId);
+
+      // Notify parent to remove chat room from list
+      if (onDeleteChatRoom) {
+        onDeleteChatRoom(roomId);
+      }
+    } catch (err) {
+      console.error('Failed to delete chat room:', err);
+      alert('ไม่สามารถลบการสนทนาได้ กรุณาลองใหม่');
+    }
   };
 
   // Get display name for other participant
@@ -248,8 +322,8 @@ export function ChatPage({
                         return (
                           <div
                             key={room.id}
-                            onClick={() => handleRoomClick(room.id)}
                             className="p-4 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleRoomClick(room.id)}
                           >
                             <div className="flex items-start gap-3">
                               <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
@@ -259,7 +333,7 @@ export function ChatPage({
                                 <div className="flex items-center justify-between mb-1">
                                   <p className="font-medium truncate">{displayName}</p>
                                   <span className="text-xs text-gray-500">
-                                    {formatTime(room.updatedAt || room.timestamp || room.createdAt)}
+                                    {formatTime(room.updatedAt || room.createdAt)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-600 truncate">
@@ -269,46 +343,19 @@ export function ChatPage({
                                   {room.lastMessage || 'ยังไม่มีข้อความ'}
                                 </p>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="requests" className="flex-1 overflow-y-auto">
-                  {filteredContactRequests.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <p>ไม่มีประวัติการสนทนา</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {filteredContactRequests.map((room) => {
-                        const displayName = getDisplayName(room);
-                        return (
-                          <div
-                            key={room.id}
-                            onClick={() => handleRoomClick(room.id)}
-                            className="p-4 hover:bg-gray-50 cursor-pointer"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-lg">{displayName?.[0] || 'U'}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <p className="font-medium truncate">{displayName}</p>
-                                  <span className="text-xs text-gray-500">
-                                    {formatTime(room.updatedAt || room.timestamp || room.createdAt)}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 truncate">
-                                  {room.productTitle || room.farmName || 'ไม่มีชื่อสินค้า'}
-                                </p>
-                                <p className="text-sm text-gray-500 truncate mt-1">
-                                  {room.lastMessage || 'ยังไม่มีข้อความ'}
-                                </p>
+                              <div className="flex-shrink-0 ml-2">
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="bg-red-600 hover:bg-red-700 border border-red-700 shadow-md"
+                                  onClick={(e: React.MouseEvent) => {
+                                    e.stopPropagation();
+                                    handleDeleteChatById(room.id);
+                                  }}
+                                  aria-label="ลบการสนทนา"
+                                >
+                                  <X className="w-5 h-5 text-white" />
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -459,7 +506,7 @@ export function ChatPage({
                                 <div className="flex items-center justify-between mb-1">
                                   <p className="font-medium truncate">{displayName}</p>
                                   <span className="text-xs text-gray-500">
-                                    {formatTime(room.updatedAt || room.timestamp || room.createdAt)}
+                                    {formatTime(room.updatedAt || room.createdAt)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-600 truncate">
@@ -468,6 +515,16 @@ export function ChatPage({
                                 <p className="text-sm text-gray-500 truncate mt-1">
                                   {room.lastMessage || 'ยังไม่มีข้อความ'}
                                 </p>
+                              </div>
+                              <div className="flex-shrink-0 ml-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleDeleteChatById(room.id); }}
+                                  aria-label="ลบการสนทนา"
+                                >
+                                  <X className="w-4 h-4 text-red-600" />
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -502,7 +559,7 @@ export function ChatPage({
                                 <div className="flex items-center justify-between mb-1">
                                   <p className="font-medium truncate">{displayName}</p>
                                   <span className="text-xs text-gray-500">
-                                    {formatTime(room.updatedAt || room.timestamp || room.createdAt)}
+                                    {formatTime(room.updatedAt || room.createdAt)}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-600 truncate">
@@ -511,6 +568,16 @@ export function ChatPage({
                                 <p className="text-sm text-gray-500 truncate mt-1">
                                   {room.lastMessage || 'ยังไม่มีข้อความ'}
                                 </p>
+                              </div>
+                              <div className="flex-shrink-0 ml-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleDeleteChatById(room.id); }}
+                                  aria-label="ลบการสนทนา"
+                                >
+                                  <X className="w-4 h-4 text-red-600" />
+                                </Button>
                               </div>
                             </div>
                           </div>

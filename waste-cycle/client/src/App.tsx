@@ -399,6 +399,18 @@ export default function App() {
     setCurrentPage('landing');
   };
 
+  // Called when child components update the user profile (e.g., ProfilePage)
+  const handleUserUpdate = async (updatedUser: any) => {
+    try {
+      // Update local user state immediately
+      setUser(updatedUser);
+      // Refresh data that depends on user (myPosts, chatRooms)
+      await fetchAllData();
+    } catch (err) {
+      console.error('Failed to handle user update:', err);
+    }
+  };
+
   const navigateTo = (page: string) => {
     setCurrentPage(page);
     if (page !== 'create-post') {
@@ -741,6 +753,9 @@ export default function App() {
               onConfirmSale={handleConfirmSale}
               initialRoomId={selectedRoomId}
               onCancelChat={handleCancelChat}
+              onDeleteChatRoom={(roomId: string) => {
+                setChatRooms(prev => prev.filter(r => r.id !== roomId));
+              }}
             />
           </>
         )}
@@ -751,6 +766,7 @@ export default function App() {
             onViewDetail={handleViewPostDetail}
             onEdit={handleEditPost}
             onDelete={handleDeletePost}
+            onUpdateUser={handleUserUpdate}
           />
         )}
         
