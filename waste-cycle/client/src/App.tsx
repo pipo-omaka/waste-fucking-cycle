@@ -373,6 +373,16 @@ export default function App() {
     }
   }, [user, fetchAllData, isNotificationSupported, isNotificationInitialized, initializeNotifications]);
 
+  // If the logged-in user is an admin, redirect them to the admin dashboard
+  // This prevents a white/empty screen when currentPage is e.g. 'profile' or 'dashboard'
+  // and those routes are hidden for admin users elsewhere in the app.
+  useEffect(() => {
+    if (user && user.role === 'admin' && currentPage !== 'admin') {
+      console.log('🛡️ Admin user detected — redirecting to admin dashboard');
+      setCurrentPage('admin');
+    }
+  }, [user, currentPage]);
+
   // Handle URL parameters for notification clicks (e.g., /chat?roomId=xxx)
   useEffect(() => {
     if (user && currentPage === 'chat') {

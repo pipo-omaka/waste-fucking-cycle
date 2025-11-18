@@ -67,9 +67,37 @@ export function Marketplace({ user, posts, onViewDetail, onEdit, onDelete, onCha
   const filterPosts = (postsToFilter: Post[]) => {
     let filtered = postsToFilter;
 
-    // Filter by waste type
+    // Helper: derive waste type from available post fields
+    const deriveWasteType = (post: Post) => {
+      // Prefer explicit field if present
+      const explicit = (post as any).wasteType || (post as any).type || (post as any).waste;
+      if (explicit && typeof explicit === 'string') return explicit;
+
+      // Try feedType
+      const feed = (post as any).feedType;
+      if (feed && typeof feed === 'string') {
+        if (feed.includes('หมัก') || feed.toLowerCase().includes('compost')) return 'มูลหมัก';
+        if (feed.includes('แห้ง') || feed.toLowerCase().includes('dry')) return 'มูลแห้ง';
+        if (feed.includes('สด') || feed.toLowerCase().includes('fresh')) return 'มูลสด';
+      }
+
+      // Look for keywords in title/description/address
+      const hay = [post.title, (post as any).description, (post as any).address, (post as any).farmName]
+        .filter(Boolean)
+        .join(' ') .toString();
+      if (/หมัก|compost|ferment/i.test(hay)) return 'มูลหมัก';
+      if (/แห้ง|dry/i.test(hay)) return 'มูลแห้ง';
+      if (/สด|fresh/i.test(hay)) return 'มูลสด';
+
+      return 'อื่นๆ';
+    };
+
+    // Filter by waste type (use derived type when explicit field missing)
     if (wasteTypeFilter !== 'all') {
-      filtered = filtered.filter(post => post.wasteType === wasteTypeFilter);
+      filtered = filtered.filter(post => {
+        const type = deriveWasteType(post);
+        return type === wasteTypeFilter;
+      });
     }
 
     // Filter by distance

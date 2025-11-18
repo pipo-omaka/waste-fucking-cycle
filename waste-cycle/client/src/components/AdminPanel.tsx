@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, FileText, CheckCircle, XCircle, AlertTriangle, Search } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -25,12 +25,8 @@ interface UserData {
   joinedDate: string;
 }
 
-const mockUsers: UserData[] = [
-  { id: '1', name: 'สมชาย', email: 'somchai@farm.com', role: 'user', farmName: 'ฟาร์มไก่ไข่ภูเก็ต', verified: true, postsCount: 12, joinedDate: '2024-08-15' },
-  { id: '2', name: 'สมหญิง', email: 'somying@farm.com', role: 'user', farmName: 'ฟาร์มโคนมสุรินทร์', verified: true, postsCount: 8, joinedDate: '2024-09-20' },
-  { id: '3', name: 'สมศักดิ์', email: 'somsak@crop.com', role: 'user', farmName: 'ฟาร์มผักอินทรีย์', verified: false, postsCount: 3, joinedDate: '2024-11-05' },
-  { id: '4', name: 'สมพร', email: 'somporn@farm.com', role: 'user', farmName: 'ฟาร์มมังคุด', verified: true, postsCount: 5, joinedDate: '2024-10-12' },
-];
+// Users and reports will be loaded from backend
+// mockReports remains as a fallback if reports API is not implemented
 
 const mockReports = [
   { id: 'r1', type: 'post', targetId: 'p5', reason: 'ข้อมูลไม่ตรงกับสินค้าจริง', reporter: 'ผู้ใช้ A', date: '2024-11-10', status: 'pending' },
@@ -41,8 +37,63 @@ const mockReports = [
 export function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTab, setSelectedTab] = useState('users');
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
-  const filteredUsers = mockUsers.filter(user =>
+  const [stats, setStats] = useState<{ totalUsers: number; totalProducts: number; totalBookings: number } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      setUsersError(null);
+      try {
+        const res = await (await import('../apiServer')).getAllUsers();
+        if (!mounted) return;
+        const fetched = res.data.users || [];
+        // Normalize to UserData shape where possible
+        const normalized: UserData[] = fetched.map((u: any) => ({
+          id: u.id || u.uid || '',
+          name: u.name || u.displayName || u.email || '—',
+          email: u.email || '',
+          role: u.role || 'user',
+          farmName: u.farmName || '',
+          verified: Boolean(u.verified),
+          postsCount: Number(u.postsCount || 0),
+          joinedDate: u.createdAt || u.joinedDate || new Date().toISOString(),
+        }));
+        setUsers(normalized);
+      } catch (err: any) {
+        console.error('Failed to load users:', err);
+        setUsersError(err?.response?.data?.message || err?.message || 'Failed to load users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    const loadStats = async () => {
+      setLoadingStats(true);
+      try {
+        const res = await (await import('../apiServer')).getAdminDashboard();
+        if (!mounted) return;
+        setStats(res.data.data || null);
+      } catch (err) {
+        console.error('Failed to load admin stats:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    loadUsers();
+    loadStats();
+
+    return () => { mounted = false; };
+  }, []);
+
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.farmName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -59,7 +110,7 @@ export function AdminPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">ผู้ใช้ทั้งหมด</p>
-                <p className="text-2xl">248</p>
+                <p className="text-2xl">{loadingStats ? '...' : (stats?.totalUsers ?? users.length)}</p>
               </div>
               <Users className="w-8 h-8 text-blue-600" />
             </div>
@@ -71,7 +122,7 @@ export function AdminPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">รอการยืนยัน</p>
-                <p className="text-2xl">7</p>
+                <p className="text-2xl">{loadingUsers ? '...' : users.filter(u => !u.verified).length}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-yellow-600" />
             </div>
@@ -83,7 +134,7 @@ export function AdminPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">โพสต์ทั้งหมด</p>
-                <p className="text-2xl">342</p>
+                <p className="text-2xl">{loadingStats ? '...' : (stats?.totalProducts ?? '—')}</p>
               </div>
               <FileText className="w-8 h-8 text-green-600" />
             </div>
@@ -95,7 +146,7 @@ export function AdminPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">รายงานปัญหา</p>
-                <p className="text-2xl">2</p>
+                <p className="text-2xl">{mockReports.length}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
@@ -147,45 +198,59 @@ export function AdminPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map(user => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.name}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">ผู้ใช้ทั่วไป</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">{user.farmName || '-'}</TableCell>
-                        <TableCell>
-                          {user.verified ? (
-                            <Badge className="bg-green-100 text-green-800">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              ยืนยันแล้ว
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              รอยืนยัน
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>{user.postsCount}</TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {new Date(user.joinedDate).toLocaleDateString('th-TH')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {!user.verified && (
-                              <Button size="sm" variant="outline">
-                                ยืนยัน
-                              </Button>
-                            )}
-                            <Button size="sm" variant="ghost">
-                              ดู
-                            </Button>
-                          </div>
-                        </TableCell>
+                    {loadingUsers ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8">กำลังโหลดรายชื่อผู้ใช้...</TableCell>
                       </TableRow>
-                    ))}
+                    ) : usersError ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-red-600">{usersError}</TableCell>
+                      </TableRow>
+                    ) : filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">ไม่พบผู้ใช้ที่ตรงกับคำค้นหา</TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map(user => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.name}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{user.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป'}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{user.farmName || '-'}</TableCell>
+                          <TableCell>
+                            {user.verified ? (
+                              <Badge className="bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                ยืนยันแล้ว
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                รอยืนยัน
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{user.postsCount}</TableCell>
+                          <TableCell className="text-sm text-gray-600">
+                            {new Date(user.joinedDate).toLocaleDateString('th-TH')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {!user.verified && (
+                                <Button size="sm" variant="outline">
+                                  ยืนยัน
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost">
+                                ดู
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>

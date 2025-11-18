@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Button } from './ui/button.tsx';
-import { Input } from './ui/input.tsx';
-import { Label } from './ui/label.tsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card.tsx';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Recycle, ArrowLeft } from 'lucide-react';
 
 interface ProfileFormData {
@@ -33,8 +33,10 @@ export function RegisterPage({
   const [farmName, setFarmName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Client UI does not allow self-assigning admin role; keep flag for conditional rendering
+  const isAdmin = false;
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: any) => {
     e.preventDefault();
     setError('');
 
@@ -53,6 +55,7 @@ export function RegisterPage({
 
     try {
       await onRegister(email, password, profileData);
+      setIsLoading(false);
     } catch (err: any) {
       console.error('Firebase Register failed:', err.code, err.message);
       setError(getFirebaseErrorMessage(err.code));

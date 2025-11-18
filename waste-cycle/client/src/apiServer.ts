@@ -284,6 +284,20 @@ export const getAllProducts = () => {
 };
 
 /**
+ * Admin / User management
+ */
+export const getAllUsers = () => {
+  return api.get('/users');
+};
+
+/**
+ * Admin dashboard aggregated stats
+ */
+export const getAdminDashboard = () => {
+  return api.get('/admin/dashboard');
+};
+
+/**
  * Get aggregated waste flow data for visualizations
  * Public endpoint: /api/visualization/waste-flow
  */

@@ -122,6 +122,8 @@ export function CreatePost({ user, onBack, onCreate, onUpdate, editingPost, isLo
   const [wasteType, setWasteType] = useState(editingPost?.wasteType || '');
   const [animalType, setAnimalType] = useState(editingPost?.animalType || '');
   const [feedType, setFeedType] = useState(editingPost?.feedType || '');
+  const [otherFeedType, setOtherFeedType] = useState('');
+  const [manureType, setManureType] = useState((editingPost as any)?.manureType || '');
   const [quantity, setQuantity] = useState(editingPost?.quantity || 0);
   const [price, setPrice] = useState(editingPost?.price || 0);
   const [unit, setUnit] = useState(editingPost?.unit || 'kg');
@@ -216,12 +218,16 @@ export function CreatePost({ user, onBack, onCreate, onUpdate, editingPost, isLo
       return;
     }
 
+    const actualFeedType = feedType === 'other' ? otherFeedType || 'อื่นๆ' : feedType;
+    const computedNpk = computeNPK(manureType, actualFeedType);
+
     const postData = {
       title,
       description,
       wasteType,
+      manureType,
       animalType: wasteType === 'animal' ? animalType : '',
-      feedType: wasteType === 'animal' ? feedType : '',
+      feedType: wasteType === 'animal' ? actualFeedType : '',
       quantity,
       price,
       unit,
@@ -230,7 +236,7 @@ export function CreatePost({ user, onBack, onCreate, onUpdate, editingPost, isLo
       // Default values for fields not in form (yet)
       distance: 0, 
       verified: false,
-      npk: { n: 0, p: 0, k: 0 }, // Should be calculated
+      npk: computedNpk, // Estimated from manure/feed choices
       images,
       farmName: user.farmName || user.name,
       contactPhone: '', // Should be from user profile
@@ -243,6 +249,39 @@ export function CreatePost({ user, onBack, onCreate, onUpdate, editingPost, isLo
       onCreate(postData as Omit<Post, 'id' | 'userId' | 'createdDate' | 'rating' | 'reviewCount'>);
     }
   };
+
+  // Simple NPK estimator based on manure type and feed type
+  function computeNPK(manure: string | undefined, feed: string | undefined) {
+    // Base map (values are percent points)
+    const base: Record<string, { n: number; p: number; k: number }> = {
+      'มูลแห้ง': { n: 10, p: 5, k: 10 },
+      'มูลหมัก': { n: 12, p: 8, k: 11 },
+      'มูลสด': { n: 20, p: 10, k: 15 },
+      '': { n: 8, p: 4, k: 8 },
+      'อื่นๆ': { n: 8, p: 4, k: 8 },
+    };
+
+    const m = (manure && base[manure]) ? base[manure] : base[''];
+    let n = m.n, p = m.p, k = m.k;
+
+    // Feed adjustments
+    if (feed) {
+      const f = feed.toLowerCase();
+      if (f.includes('หญ้') || f.includes('fresh')) {
+        // more potassium
+        k += 2;
+      }
+      if (f.includes('อาหารเม็ด') || f.includes('pellet') || f.includes('feed')) {
+        // balanced
+        n += 1; p += 0; k += 0;
+      }
+      if (f.includes('หมัก') || f.includes('ferment')) {
+        p += 1;
+      }
+    }
+
+    return { n, p, k };
+  }
 
   const renderMap = () => {
     if (loadError) return <div>Error loading maps</div>;
@@ -316,9 +355,63 @@ export function CreatePost({ user, onBack, onCreate, onUpdate, editingPost, isLo
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manureType">ประเภทมูลสัตว์</Label>
+                    <Select value={manureType} onValueChange={setManureType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="เลือกประเภทมูล" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="มูลแห้ง">มูลแห้ง</SelectItem>
+                        <SelectItem value="มูลหมัก">มูลหมัก</SelectItem>
+                        <SelectItem value="มูลสด">มูลสด</SelectItem>
+                        <SelectItem value="อื่นๆ">อื่นๆ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="feedType">ประเภทอาหารสัตว์</Label>
-                    <Input id="feedType" value={feedType} onChange={(e) => setFeedType(e.target.value)} placeholder="เช่น อาหารเม็ด, หญ้าสด" />
+                    <Select value={feedType} onValueChange={setFeedType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="เลือกประเภทอาหาร" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="อาหารเม็ด">อาหารเม็ด</SelectItem>
+                        <SelectItem value="หญ้าสด">หญ้าสด</SelectItem>
+                        <SelectItem value="อาหารหมัก">อาหารหมัก</SelectItem>
+                        <SelectItem value="other">อื่นๆ</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {feedType === 'other' && (
+                      <Input id="otherFeed" value={otherFeedType} onChange={(e) => setOtherFeedType(e.target.value)} placeholder="ระบุประเภทอาหารอื่นๆ" className="mt-2" />
+                    )}
+
+                    {/* NPK Preview */}
+                    <div className="mt-3 p-3 bg-gray-50 rounded-md border">
+                      <p className="text-sm text-gray-600 mb-2">ค่าโดยประมาณ N-P-K จากข้อมูลที่ให้:</p>
+                      {(() => {
+                        const actualFeed = feedType === 'other' ? (otherFeedType || 'อื่นๆ') : feedType;
+                        const npk = computeNPK(manureType, actualFeed);
+                        return (
+                          <div className="flex gap-3 text-sm">
+                            <div className="bg-green-50 rounded-lg p-2 text-center w-20">
+                              <div className="text-xs text-gray-600">N</div>
+                              <div className="text-green-600 font-semibold">{npk.n}%</div>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-2 text-center w-20">
+                              <div className="text-xs text-gray-600">P</div>
+                              <div className="text-blue-600 font-semibold">{npk.p}%</div>
+                            </div>
+                            <div className="bg-orange-50 rounded-lg p-2 text-center w-20">
+                              <div className="text-xs text-gray-600">K</div>
+                              <div className="text-orange-600 font-semibold">{npk.k}%</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </>
               )}
