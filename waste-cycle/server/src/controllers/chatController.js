@@ -1,7 +1,7 @@
 import asyncHandler from '../middleware/asyncHandler.js';
 import { db, auth } from '../config/firebaseConfig.js';
 import crypto from 'crypto';
-import { sendChatNotification } from '../services/notificationService.js';
+import { sendPushNotification } from '../services/notificationService.js';
 
 /**
  * Validate that a string is a valid Firebase UID (not a JWT token)
@@ -708,8 +708,8 @@ const postMessage = asyncHandler(async (req, res) => {
     updatedAt: new Date().toISOString(),
   });
 
+
   // Send push notification to receiver (don't wait for it to complete)
-  // Get sender name from chat room data or user document
   let senderName = 'Someone';
   try {
     // Try to get sender name from chat room participant names
@@ -719,7 +719,6 @@ const postMessage = asyncHandler(async (req, res) => {
         senderName = chatRoomData.participantNames[senderIndex];
       }
     }
-    
     // If not found, try to get from user document
     if (senderName === 'Someone') {
       const senderDoc = await db.collection('users').doc(senderId).get();
@@ -730,19 +729,22 @@ const postMessage = asyncHandler(async (req, res) => {
     }
   } catch (error) {
     console.error('Error getting sender name for notification:', error);
-    // Continue with default name
   }
 
   // Send notification asynchronously (don't block the response)
-  sendChatNotification(
-    receiverId,
-    senderId,
-    senderName,
-    text.trim(),
-    chatRoomId
-  ).catch(error => {
+  sendPushNotification(receiverId, {
+    title: 'คุณได้รับข้อความใหม่',
+    body: `${senderName}: ${text.trim()}`,
+    icon: '/icon-192x192.png',
+    data: {
+      chatId: chatRoomId,
+      senderId: senderId,
+      senderName: senderName,
+      click_action: '/chat',
+      type: 'chat',
+    },
+  }).catch(error => {
     console.error('Failed to send push notification:', error);
-    // Don't throw - notification failure shouldn't break message sending
   });
 
   res.status(201).json({

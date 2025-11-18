@@ -274,7 +274,7 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-xl transition-shadow">
+    <Card className="overflow-hidden hover:shadow-xl transition-shadow flex flex-col h-full">
       {/* Image Section */}
       <div className="relative h-48 bg-gradient-to-br from-green-100 to-blue-100 overflow-hidden">
         {post.images && Array.isArray(post.images) && post.images.length > 0 && post.images[0] ? (
@@ -317,7 +317,7 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
         )}
       </div>
 
-      <CardContent className="p-4">
+      <CardContent className="p-4 flex-1 flex flex-col justify-between">
         {/* Title */}
         <h3 className="text-lg mb-1 font-semibold">{post.title}</h3>
         <p className="text-sm text-gray-500 mb-3">{post.farmName}</p>
@@ -357,7 +357,7 @@ function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-4">
           <Button 
             variant="ghost"
             size="sm"

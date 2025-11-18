@@ -51,11 +51,27 @@ export function FertilizerAdvisor({ defaultTab = 'recommendation', onTabChange }
   );
 }
 
+import { useEffect } from 'react';
+import { getAllProducts } from '../apiServer';
+
 function FertilizerRecommendation() {
   const [cropType, setCropType] = useState('');
   const [area, setArea] = useState('');
   const [growthStage, setGrowthStage] = useState('');
   const [showResults, setShowResults] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showResults) {
+      setLoading(true);
+      getAllProducts()
+        .then(res => setProducts(res.data.data || []))
+        .catch(err => setError('ไม่สามารถโหลดข้อมูลสินค้าได้'))
+        .finally(() => setLoading(false));
+    }
+  }, [showResults]);
 
   const handleCalculate = () => {
     if (cropType && area && growthStage) {
@@ -63,26 +79,13 @@ function FertilizerRecommendation() {
     }
   };
 
-  const recommendedSources = [
-    {
-      id: '1',
-      name: 'มูลไก่อินทรีย์',
-      seller: 'ฟาร์มไก่ไข่ภูเก็ต',
-      npk: { n: 3.5, p: 3.0, k: 1.8 },
-      price: 320,
-      distance: 4.2,
-      matchScore: 95,
-    },
-    {
-      id: '2',
-      name: 'มูลโคนมพร้อมใช้',
-      seller: 'ฟาร์มโคนมสุรินทร์',
-      npk: { n: 2.5, p: 1.8, k: 2.1 },
-      price: 250,
-      distance: 8.3,
-      matchScore: 88,
-    },
-  ];
+  // Map cropType to Thai
+  const cropTypeThai: Record<string, string> = {
+    vegetables: 'ผักใบ',
+    fruits: 'ผลไม้',
+    rice: 'ข้าว',
+    corn: 'ข้าวโพด',
+  };
 
   return (
     <div className="space-y-6">
@@ -157,27 +160,9 @@ function FertilizerRecommendation() {
           <Card>
             <CardHeader>
               <CardTitle>ผลการคำนวณ</CardTitle>
-              <CardDescription>ปุ๋ยที่แนะนำสำหรับ{cropType} พื้นที่ {area} ไร่</CardDescription>
+              <CardDescription>ปุ๋ยที่แนะนำสำหรับ{cropTypeThai[cropType] || cropType} พื้นที่ {area} ไร่</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-green-50 rounded-lg p-4 text-center">
-                  <div className="text-xs text-gray-600 mb-2">N (ไนโตรเจน)</div>
-                  <div className="text-3xl text-green-600 mb-1">2.5</div>
-                  <div className="text-xs text-gray-500">สัดส่วน</div>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <div className="text-xs text-gray-600 mb-2">P (ฟอสฟอรัส)</div>
-                  <div className="text-3xl text-blue-600 mb-1">1.8</div>
-                  <div className="text-xs text-gray-500">สัดส่วน</div>
-                </div>
-                <div className="bg-orange-50 rounded-lg p-4 text-center">
-                  <div className="text-xs text-gray-600 mb-2">K (โพแทสเซียม)</div>
-                  <div className="text-3xl text-orange-600 mb-1">2.1</div>
-                  <div className="text-xs text-gray-500">สัดส่วน</div>
-                </div>
-              </div>
-
               <div className="bg-blue-50 rounded-lg p-4">
                 <h4 className="text-sm text-blue-900 mb-2">💡 คำแนะนำ</h4>
                 <ul className="text-sm text-blue-800 space-y-1">
@@ -196,44 +181,46 @@ function FertilizerRecommendation() {
               <CardDescription>ฟาร์มที่มีปุ๋ยตรงตามความต้องการของคุณ</CardDescription>
             </CardHeader>
             <CardContent>
+              {loading && <div className="text-gray-500">กำลังโหลดข้อมูลสินค้า...</div>}
+              {error && <div className="text-red-500">{error}</div>}
               <div className="space-y-4">
-                {recommendedSources.map((source) => (
+                {products.map((product) => (
                   <div
-                    key={source.id}
+                    key={product.id}
                     className="border border-gray-200 rounded-lg p-4 hover:border-green-500 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h4 className="text-gray-900 mb-1">{source.name}</h4>
-                        <p className="text-sm text-gray-600">{source.seller}</p>
+                        <h4 className="text-gray-900 mb-1">{product.title}</h4>
+                        <p className="text-sm text-gray-600">{product.farmName}</p>
                       </div>
                       <Badge className="bg-green-500">
                         <TrendingUp className="w-3 h-3 mr-1" />
-                        {source.matchScore}% Match
+                        {product.verified ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน'}
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 mb-3">
                       <div className="bg-gray-50 rounded p-2 text-center">
                         <div className="text-xs text-gray-500">N</div>
-                        <div className="text-sm text-green-600">{source.npk.n}%</div>
+                        <div className="text-sm text-green-600">{product.npk?.n ?? '-'}</div>
                       </div>
                       <div className="bg-gray-50 rounded p-2 text-center">
                         <div className="text-xs text-gray-500">P</div>
-                        <div className="text-sm text-blue-600">{source.npk.p}%</div>
+                        <div className="text-sm text-blue-600">{product.npk?.p ?? '-'}</div>
                       </div>
                       <div className="bg-gray-50 rounded p-2 text-center">
                         <div className="text-xs text-gray-500">K</div>
-                        <div className="text-sm text-orange-600">{source.npk.k}%</div>
+                        <div className="text-sm text-orange-600">{product.npk?.k ?? '-'}</div>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span className="text-lg text-green-600">฿{source.price}/กก.</span>
+                        <span className="text-lg text-green-600">฿{product.price}/กก.</span>
                         <span className="flex items-center gap-1">
                           <Leaf className="w-4 h-4" />
-                          {source.distance} กม.
+                          {product.distance ?? '-'} กม.
                         </span>
                       </div>
                       <Button size="sm" className="bg-green-500 hover:bg-green-600">
@@ -356,13 +343,35 @@ function NPKCalculatorContent() {
       </Card>
 
       {/* Results */}
+
       {showResults && animalType && (
         <>
+          {/* Review Card */}
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>สรุปข้อมูลที่คุณกรอก</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">ชนิดสัตว์:</span> {animalType === 'chicken' ? 'ไก่' : animalType === 'cow' ? 'โค' : 'สุกร'}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">ชนิดอาหาร:</span> {feedType === 'concentrate' ? 'อาหารข้น' : feedType === 'grass' ? 'หญ้า/ฟาง' : 'อาหารผสม'}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">ปริมาณ:</span> {quantity} กก.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* NPK Result Card */}
           <Card>
             <CardHeader>
-              <CardTitle>ผลการคำนวณ NPK</CardTitle>
+              <CardTitle>ผลการคำนวณค่า NPK</CardTitle>
               <CardDescription>
-                จาก{animalType === 'chicken' ? 'ไก่' : animalType === 'cow' ? 'โค' : 'สุกร'} ปริมาณ {quantity} กก.
+                ค่าคุณภาพทางเคมีของเสียจาก{animalType === 'chicken' ? 'ไก่' : animalType === 'cow' ? 'โค' : 'สุกร'} ({quantity} กก.)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -370,22 +379,22 @@ function NPKCalculatorContent() {
                 <div className="bg-green-50 rounded-lg p-4 text-center">
                   <div className="text-xs text-gray-600 mb-2">N (ไนโตรเจน)</div>
                   <div className="text-3xl text-green-600 mb-1">{npkData[animalType].n}</div>
-                  <div className="text-xs text-gray-500">%</div>
+                  <div className="text-xs text-gray-500">% ของน้ำหนักสด</div>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <div className="text-xs text-gray-600 mb-2">P (ฟอสฟอรัส)</div>
                   <div className="text-3xl text-blue-600 mb-1">{npkData[animalType].p}</div>
-                  <div className="text-xs text-gray-500">%</div>
+                  <div className="text-xs text-gray-500">% ของน้ำหนักสด</div>
                 </div>
                 <div className="bg-orange-50 rounded-lg p-4 text-center">
                   <div className="text-xs text-gray-600 mb-2">K (โพแทสเซียม)</div>
                   <div className="text-3xl text-orange-600 mb-1">{npkData[animalType].k}</div>
-                  <div className="text-xs text-gray-500">%</div>
+                  <div className="text-xs text-gray-500">% ของน้ำหนักสด</div>
                 </div>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm text-gray-900 mb-2">📊 ปริมาณธาตุอาหารที่ได้</h4>
+                <h4 className="text-sm text-gray-900 mb-2">📊 ปริมาณธาตุอาหารที่ได้ (กก.)</h4>
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div>
                     <span className="text-gray-600">N: </span>
@@ -400,6 +409,7 @@ function NPKCalculatorContent() {
                     <span className="text-orange-600">{((Number(quantity) * npkData[animalType].k) / 100).toFixed(2)} กก.</span>
                   </div>
                 </div>
+                <div className="text-xs text-gray-500 mt-2">* ค่านี้เป็นการประมาณการเบื้องต้น อาจแตกต่างตามสภาพแวดล้อมและอาหารที่ให้</div>
               </div>
             </CardContent>
           </Card>
