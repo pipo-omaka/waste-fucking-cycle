@@ -114,6 +114,14 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Compute unread chat count for header badge
+  const unreadChatCount = user
+    ? Object.values(chatMessages)
+        .flat()
+        .filter((m: any) => m && m.read === false && String(m.receiverId) === String(user.uid || user.id))
+        .length
+    : 0;
+
   // Push Notifications Setup
   const handleNotificationReceived = useCallback((payload: any) => {
     console.log('📨 Notification received in foreground:', payload);
@@ -215,7 +223,15 @@ export default function App() {
    */
   useEffect(() => {
     let isInitialMount = true; // Track if this is the first mount
-    
+    let fallbackTimer: any = null;
+    // If auth doesn't respond within 3s, stop showing global loading spinner
+    fallbackTimer = setTimeout(() => {
+      setIsLoading(false);
+      // Mark initial mount complete so a subsequent login event will redirect to profile
+      isInitialMount = false;
+      console.warn('⚠️ Auth initialization timed out — falling back to landing page');
+    }, 3000);
+
     const unsubscribe = onAuthChange(async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         try {
@@ -326,14 +342,23 @@ export default function App() {
         cleanupNotifications();
       }
       
+      // Clear fallback timer once we received an auth event
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+
       // Mark that initial mount is complete
       if (isInitialMount) {
         isInitialMount = false;
       }
-      
+
       setIsLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -612,7 +637,7 @@ export default function App() {
   // ถ้า login แล้ว → แสดงหน้าเว็บทั้งหมด
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user!} onLogout={handleLogout} onNavigate={navigateTo} currentPage={currentPage} />
+      <Header user={user!} onLogout={handleLogout} onNavigate={navigateTo} currentPage={currentPage} unreadChatCount={unreadChatCount} />
       
       <main className="pt-16">
         {/* Server Error Display - Show when backend is unavailable */}
@@ -654,7 +679,7 @@ export default function App() {
           </div>
         )}
         
-        {currentPage === 'dashboard' && (
+        {(currentPage === 'dashboard' || currentPage === 'landing') && (
           <Dashboard 
             user={user!} 
             onNavigate={navigateTo} 
