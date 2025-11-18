@@ -148,22 +148,30 @@ const findExistingChatRoom = async (userId1, userId2, productId = null) => {
     return hasUser1 && hasUser2;
   };
 
-  // If productId provided, try to find a room for this product first
+  // If productId provided, ONLY search for room matching this specific product
+  // This ensures separate rooms per product (no fallback to generic room)
   if (productId) {
+    console.log(`🔍 Searching for room with productId=${productId} and participants containing ${userId1Str}`);
     const prodSnapshot = await db.collection('chatRooms')
       .where('productId', '==', String(productId))
       .where('participants', 'array-contains', userId1Str)
       .get();
 
+    console.log(`📊 Found ${prodSnapshot.docs.length} rooms with productId=${productId}`);
+    
     for (const doc of prodSnapshot.docs) {
       if (docHasBothParticipants(doc)) {
         console.log(`✅ Found existing chat room for product ${productId}: ${doc.id}`);
         return doc;
       }
     }
+    
+    console.log(`❌ No existing room found for product ${productId} - will create new one`);
+    return null;
   }
 
-  // Fallback: find any room that contains both users (legacy behavior)
+  // Legacy: if no productId provided, search for any room between users
+  console.log(`🔍 No productId provided, searching for any room between ${userId1Str} and ${userId2Str}`);
   const allRoomsSnapshot = await db.collection('chatRooms')
     .where('participants', 'array-contains', userId1Str)
     .get();
@@ -321,11 +329,13 @@ const createChatRoom = asyncHandler(async (req, res) => {
 
   // CRITICAL: Try to find an existing chat room scoped to the product first
   // This allows the same two users to have separate chat rooms per product.
+  console.log(`🔍 Searching for existing room: buyerId=${buyerId}, sellerId=${sellerId}, productId=${productId}`);
   const existingRoomDoc = await findExistingChatRoom(buyerId, sellerId, productId);
 
   if (existingRoomDoc) {
     // Room exists, return it
     const existingData = existingRoomDoc.data();
+    console.log(`✅ Found existing room ${existingRoomDoc.id} for product ${productId}`);
     
     // CRITICAL FIX: Clean participants array to remove JWT tokens
     let participants = cleanParticipantsArray(existingData.participants || []);
@@ -377,6 +387,7 @@ const createChatRoom = asyncHandler(async (req, res) => {
   // Generate unique chat room ID. Include productId so same users can have
   // separate rooms per product.
   const chatRoomId = generateChatRoomId(buyerId, sellerId, productId);
+  console.log(`🆕 No existing room found, generating new ID: ${chatRoomId} for product ${productId}`);
 
   // Double-check: Make sure room doesn't exist with this ID
   const chatRoomRef = db.collection('chatRooms').doc(chatRoomId);
