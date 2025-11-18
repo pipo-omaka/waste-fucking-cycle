@@ -1,10 +1,9 @@
 import { ArrowLeft, MapPin, Calendar, Package, DollarSign, Edit, Trash2, MessageCircle, ShoppingCart } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { PostLocationMap } from './Map/PostLocationMap';
 import type { Post } from '../App';
 
 interface PostDetailProps {
@@ -17,34 +16,6 @@ interface PostDetailProps {
 }
 
 export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat }: PostDetailProps) {
-  // Google Maps API key from .env (VITE_GOOGLE_MAPS_API_KEY)
-  // Vite env typing workaround
-  const googleMapsApiKey = (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || '';
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    post.location && post.location.lat && post.location.lng ? { lat: post.location.lat, lng: post.location.lng } : null
-  );
-  const [geocodeError, setGeocodeError] = useState<string | null>(null);
-
-  // Load Google Maps script
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey,
-    libraries: ['places'],
-  });
-
-  // Geocode address if no coords
-  useEffect(() => {
-    if (!coords && post.address && googleMapsApiKey && isLoaded) {
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address: post.address }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          setCoords({ lat: location.lat(), lng: location.lng() });
-        } else {
-          setGeocodeError('ไม่พบตำแหน่งบนแผนที่');
-        }
-      });
-    }
-  }, [post.address, coords, googleMapsApiKey, isLoaded]);
   const handleDelete = () => {
     if (confirm('คุณต้องการลบโพสต์นี้หรือไม่?')) {
       onDelete();
@@ -149,30 +120,6 @@ export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat }:
                   <p>{post.address}</p>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">ระยะทาง {post.distance.toFixed(1)} กิโลเมตร</p>
-                {/* Google Map */}
-                <div className="mt-3">
-                  {isLoaded ? (
-                    coords ? (
-                      <GoogleMap
-                        mapContainerStyle={{ width: '100%', height: '220px', borderRadius: '12px' }}
-                        center={coords}
-                        zoom={15}
-                        options={{
-                          disableDefaultUI: true,
-                          zoomControl: true,
-                        }}
-                      >
-                        <Marker position={coords} />
-                      </GoogleMap>
-                    ) : geocodeError ? (
-                      <div className="text-red-500 text-sm">{geocodeError}</div>
-                    ) : (
-                      <div className="text-gray-400 text-sm">กำลังโหลดแผนที่...</div>
-                    )
-                  ) : (
-                    <div className="text-gray-400 text-sm">กำลังโหลด Google Maps...</div>
-                  )}
-                </div>
               </div>
 
               <div>
@@ -203,6 +150,15 @@ export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat }:
           <div>
             <p className="text-sm text-gray-600 mb-2">รายละเอียด</p>
             <p className="text-gray-700 leading-relaxed">{post.description}</p>
+          </div>
+
+          {/* Location Map Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">แผนที่ตำแหน่ง</h3>
+            <PostLocationMap 
+              lat={post.location?.lat} 
+              lng={post.location?.lng} 
+            />
           </div>
 
           {/* Contact Info */}
