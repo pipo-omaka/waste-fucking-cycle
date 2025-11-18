@@ -13,9 +13,10 @@ interface PostDetailProps {
   onDelete: () => void;
   isMyPost: boolean;
   onChat: () => void;
+  onBook?: () => void;
 }
 
-export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat }: PostDetailProps) {
+export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat, onBook }: PostDetailProps) {
   const handleDelete = () => {
     if (confirm('คุณต้องการลบโพสต์นี้หรือไม่?')) {
       onDelete();
@@ -166,12 +167,32 @@ export function PostDetail({ post, onBack, onEdit, onDelete, isMyPost, onChat }:
             <div className="border-t pt-6">
               <p className="text-sm text-gray-600 mb-3">ติดต่อผู้ขาย</p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={onChat}>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    if (!onChat) {
+                      alert('ไม่สามารถเริ่มแชทได้');
+                      return;
+                    }
+                    onChat();
+                  }}
+                >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   พูดคุย
                 </Button>
-                <Button variant="outline" className="flex-1">โทร {post.contactPhone}</Button>
-                <Button className="flex-1 bg-green-700 hover:bg-green-800">
+                <Button variant="outline" className="flex-1" onClick={() => { window.location.href = `tel:${post.contactPhone}`; }}>
+                  โทร {post.contactPhone}
+                </Button>
+                <Button
+                  className="flex-1 bg-green-700 hover:bg-green-800"
+                  onClick={() => {
+                    if (onBook) {
+                      onBook();
+                    } else {
+                      alert('ฟังก์ชันจองยังไม่พร้อมใช้งาน');
+                    }
+                  }}
+                >
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   จองเลย
                 </Button>
