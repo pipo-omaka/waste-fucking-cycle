@@ -60,11 +60,13 @@ export function ChatPage({
   }, [selectedRoomId, chatRooms]);
 
   // Handle initialRoomId prop changes (e.g., from notification clicks)
+  // Only update when initialRoomId changes, not when selectedRoomId changes
   useEffect(() => {
-    if (initialRoomId && initialRoomId !== selectedRoomId) {
+    if (initialRoomId) {
       setSelectedRoomId(initialRoomId);
+      setShowChatView(true);
     }
-  }, [initialRoomId, selectedRoomId]);
+  }, [initialRoomId]);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [showChatView, setShowChatView] = useState(false);
@@ -208,13 +210,8 @@ export function ChatPage({
   };
 
   const handleRoomClick = (roomId: string) => {
-    // If user clicks the currently selected room, toggle it closed
-    if (selectedRoomId === roomId) {
-      setSelectedRoomId(null);
-      setShowChatView(false);
-      return;
-    }
-
+    // Always switch to the clicked room (removed toggle logic to fix switching issue)
+    console.log(`🔄 Switching to room ${roomId}`);
     setSelectedRoomId(roomId);
     setShowChatView(true);
   };
@@ -263,6 +260,22 @@ export function ChatPage({
     } catch (err) {
       console.error('Failed to delete chat room:', err);
       alert('ไม่สามารถลบการสนทนาได้ กรุณาลองใหม่');
+    }
+  };
+
+  const handleConfirmSale = async () => {
+    if (!selectedPost || !selectedRoom || !onConfirmSale) return;
+
+    try {
+      await onConfirmSale(selectedPost.id, selectedRoom.id);
+
+      // Update UI after confirmation
+      setSelectedRoomId(null);
+      setShowChatView(false);
+      alert('ยืนยันการขายสำเร็จ!');
+    } catch (error) {
+      console.error('Error confirming sale:', error);
+      alert('ไม่สามารถยืนยันการขายได้ กรุณาลองใหม่');
     }
   };
 

@@ -529,30 +529,30 @@ export default function App() {
         navigateTo('chat');
         console.log(`💬 Opening chat for mock product ${postId}`);
       } else {
-        // Real product - check if chat room already exists before creating
-        const currentUserId = String(user.uid || user.id);
-        const sellerId = String(post?.userId || '');
-        
-        // CRITICAL: Check if a chat room already exists between current user and seller
-        // This prevents creating duplicate rooms (ONE room per user pair)
-        const existingRoom = findChatRoomBetweenUsers(chatRooms, currentUserId, sellerId);
-        
-        if (existingRoom) {
-          // Room already exists, use it
-          console.log(`✅ Found existing chat room: ${existingRoom.id} between ${currentUserId} and ${sellerId}`);
-          setSelectedRoomId(existingRoom.id);
-          navigateTo('chat');
-          return;
-        }
-        
-        // No existing room found, create or get chat room via API
-        // MULTI-USER: API will find existing room or create new one (ONE room per user pair)
+        // Real product - let server handle finding or creating product-scoped room
+        // Server will check for existing room matching both participants + productId
+        // and create a new one if none exists (enabling separate rooms per product)
+        console.log(`🔄 Creating/finding chat room for product ${postId}...`);
         const response = await createChatRoom(postId);
         const room = response.data.data;
         
-        // Add room to state if not exists
-        if (!chatRooms.find(r => r.id === room.id)) {
-          setChatRooms(prev => [...prev, room]);
+        console.log(`✅ Got chat room ${room.id} for product ${postId}`, {
+          message: response.data.message,
+          productId: room.productId,
+          productTitle: room.productTitle,
+        });
+        
+        // Always refresh chat rooms list from server to ensure we have latest data
+        try {
+          const roomsResponse = await getChatRooms();
+          setChatRooms(roomsResponse.data.data || []);
+          console.log(`✅ Refreshed chat rooms list: ${roomsResponse.data.data?.length || 0} rooms`);
+        } catch (refreshError) {
+          console.error('Failed to refresh chat rooms:', refreshError);
+          // Fallback: add room to state if not exists
+          if (!chatRooms.find(r => r.id === room.id)) {
+            setChatRooms(prev => [...prev, room]);
+          }
         }
         
         // Navigate to chat with room ID

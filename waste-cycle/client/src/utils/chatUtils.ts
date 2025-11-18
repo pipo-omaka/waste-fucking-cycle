@@ -18,11 +18,29 @@ import type { ChatRoom } from '../services/chatService';
 export const findChatRoomBetweenUsers = (
   chatRooms: ChatRoom[],
   userId1: string,
-  userId2: string
+  userId2: string,
+  productId: string | null = null
 ): ChatRoom | null => {
   const userId1Str = String(userId1);
   const userId2Str = String(userId2);
-  
+  // Prefer a room that matches both participants AND the same productId (if provided)
+  if (productId) {
+    const byProduct = chatRooms.find(room => {
+      const roomProduct = String(room.productId || room.productId || '');
+      if (!roomProduct || roomProduct !== String(productId)) return false;
+      if (room.participants && Array.isArray(room.participants)) {
+        const participants = room.participants.map(p => String(p));
+        const hasUser1 = participants.includes(userId1Str);
+        const hasUser2 = participants.includes(userId2Str);
+        return hasUser1 && hasUser2;
+      }
+      const buyerId = String(room.buyerId || '');
+      const sellerId = String(room.sellerId || '');
+      return (buyerId === userId1Str && sellerId === userId2Str) || (buyerId === userId2Str && sellerId === userId1Str);
+    });
+    if (byProduct) return byProduct;
+  }
+
   return chatRooms.find(room => {
     // Support both new format (participants) and legacy format (buyerId/sellerId)
     if (room.participants && Array.isArray(room.participants)) {

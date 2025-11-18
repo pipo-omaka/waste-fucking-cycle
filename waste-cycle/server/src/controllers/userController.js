@@ -252,14 +252,23 @@ const updateUserRole = asyncHandler(async (req, res) => {
   }
 
   const userRef = db.collection('users').doc(userId);
-  await userRef.update({ role, updatedAt: new Date().toISOString() });
+  // Support updating role and/or verified flag by admin
+  const updatePayload = {};
+  if (role !== undefined) updatePayload.role = role;
+  if (req.body.verified !== undefined) updatePayload.verified = Boolean(req.body.verified);
+  updatePayload.updatedAt = new Date().toISOString();
+
+  await userRef.update(updatePayload);
 
   // Update Firebase Auth custom claims
-  try {
-    await auth.setCustomUserClaims(userId, { role });
-  } catch (error) {
-    console.error('Error updating custom claims:', error);
-    // Continue even if custom claims update fails
+  // If role was changed, try to update custom claims in Firebase Auth
+  if (role) {
+    try {
+      await auth.setCustomUserClaims(userId, { role });
+    } catch (error) {
+      console.error('Error updating custom claims:', error);
+      // Continue even if custom claims update fails
+    }
   }
 
   res.status(200).json({ success: true, message: 'User role updated' });
