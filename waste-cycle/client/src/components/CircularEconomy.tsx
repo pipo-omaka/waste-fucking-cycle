@@ -1,6 +1,6 @@
 // CircularEconomy: show visualizations. Uses backend data when available.
 import { useEffect, useState } from 'react';
-import { TrendingUp, Package, DollarSign, ShoppingCart, Users, Globe, Sprout } from 'lucide-react';
+import { Package, DollarSign, ShoppingCart, Users, Globe, Sprout } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Progress } from './ui/progress';
@@ -244,7 +244,7 @@ export function CircularEconomy() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value) => totalWaste ? `${value} ตัน (${((value/(totalWaste||1))*100).toFixed(1)}%)` : `${value}`}
+                    formatter={(value: number) => totalWaste ? `${value} ตัน (${((value/(totalWaste||1))*100).toFixed(1)}%)` : `${value}`}
                     contentStyle={{ 
                       backgroundColor: 'white', 
                       border: '1px solid #e5e7eb',

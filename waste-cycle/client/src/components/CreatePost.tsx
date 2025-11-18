@@ -6,7 +6,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { ArrowLeft, MapPin, Upload } from 'lucide-react';
+import { ArrowLeft, Upload } from 'lucide-react';
 import { type User, type Post } from '../App'; // แก้ไข Path
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
 

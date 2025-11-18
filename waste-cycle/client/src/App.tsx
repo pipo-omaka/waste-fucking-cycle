@@ -16,8 +16,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { ChatPage } from './components/ChatPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ChatDialog } from './components/ChatDialog';
-import { PrivateRoute } from './components/PrivateRoute';
-import api, {
+import {
   setAuthToken,
   onAuthChange,
   getMyProfile,
@@ -25,7 +24,6 @@ import api, {
   logoutUser,
   registerUser,
   createProfile,
-  getProducts,          // Legacy - kept for backward compatibility
   getAllProducts,       // Get all posts from all users (for Marketplace)
   getMyProducts,        // Get posts for current user only (for Profile/Dashboard)
   createProduct,
@@ -35,12 +33,10 @@ import api, {
   createChatRoom,       // MULTI-USER: Create or get chat room
   createBooking,
 } from './apiServer'; // แก้ไข Path
-import { Recycle } from 'lucide-react';
 import { useJsApiLoader } from '@react-google-maps/api';
 // import { generateMockPosts } from './mockData'; // DISABLED: No mock data fallback
 import { useNotifications } from './hooks/useNotifications';
 import { NotificationPermissionPrompt } from './components/NotificationPermissionPrompt';
-import { findChatRoomBetweenUsers } from './utils/chatUtils';
 
 export type UserRole = 'user' | 'admin' | 'seller';
 

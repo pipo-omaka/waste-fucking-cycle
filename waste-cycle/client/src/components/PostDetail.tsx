@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+// @ts-ignore - JSX component without type definitions
 import { PostLocationMap } from './Map/PostLocationMap';
 import type { Post } from '../App';
 

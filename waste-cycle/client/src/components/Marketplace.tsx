@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Filter, Plus, MapPin, Eye, Edit, Trash2, MessageCircle, Calendar, Package } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Filter, MapPin, Edit, Trash2, MessageCircle, Package } from 'lucide-react';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -294,7 +294,7 @@ interface PostCardProps {
   isChatting: boolean;
 }
 
-function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat, showAllActions, isChatting }: PostCardProps) {
+function ModernPostCard({ post, isMyPost, onViewDetail, onEdit, onDelete, onChat, isChatting }: PostCardProps) {
   const handleDelete = () => {
     if (confirm('คุณต้องการลบโพสต์นี้หรือไม่?')) {
       onDelete(post.id);

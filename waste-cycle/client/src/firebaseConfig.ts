@@ -116,4 +116,4 @@ Required variables:
 
 // MULTI-USER: Export Firestore instance for real-time chat
 export { db, auth };
-export default app;
+export default app as ReturnType<typeof initializeApp>;

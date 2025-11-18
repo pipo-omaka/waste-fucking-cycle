@@ -1,19 +1,14 @@
 import axios from 'axios';
 import {
-  initializeApp,
-  type FirebaseApp,
-  type FirebaseOptions,
-} from 'firebase/app';
-import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  type Auth,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import app from './firebaseConfig';
+import type { FirebaseApp as AppType } from 'firebase/app';
 
 const API_URL = 'http://localhost:8000/api';
 
@@ -21,7 +16,7 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
-const auth = getAuth(app);
+const auth = getAuth(app as AppType);
 
 export const setAuthToken = (token: string | null) => {
   if (token) {

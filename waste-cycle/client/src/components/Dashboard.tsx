@@ -2,10 +2,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { type User, type Post } from '../App';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Map, ShoppingBag, Plus, Settings, MessageSquare, BarChart2, Edit, Trash, Eye, Navigation } from 'lucide-react';
+import { Map, ShoppingBag, Plus, Settings, MessageSquare, Edit, Trash, Eye, Navigation } from 'lucide-react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { LocationPermissionHandler } from './LocationPermissionHandler';
-import { getUserLocation, openNavigation, type Location } from '../utils/locationUtils';
+import { openNavigation, type Location } from '../utils/locationUtils';
 
 interface DashboardProps {
   user: User;
@@ -39,7 +39,7 @@ export function Dashboard({
   onViewDetail,
   onEdit,
   onDelete,
-  onChat,
+  onChat: _onChat,
   isLoaded,
   loadError,
 }: DashboardProps) {
