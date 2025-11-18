@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Sprout, Calculator, TrendingUp, Leaf, Droplets, BookOpen } from 'lucide-react';
+import { useState, useEffect } from 'react'; // รวม useState และ useEffect ไว้ที่นี่
+import { Sprout, Calculator, TrendingUp, Leaf, Droplets, BookOpen, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,6 +7,12 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
+// ตรวจสอบ path นี้ให้ถูกต้อง ถ้าไม่มีไฟล์นี้ให้ลบ import นี้ออกและแก้ส่วนที่เรียกใช้
+import { getAllProducts } from '../apiServer'; 
+
+// ----------------------------------------------------
+// Main Component (ตัวที่ Export ออกไป)
+// ----------------------------------------------------
 
 interface FertilizerAdvisorProps {
   defaultTab?: 'recommendation' | 'calculator';
@@ -26,7 +32,7 @@ export function FertilizerAdvisor({ defaultTab = 'recommendation', onTabChange }
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange as any} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="recommendation">
               <BookOpen className="w-4 h-4 mr-2" />
@@ -51,8 +57,9 @@ export function FertilizerAdvisor({ defaultTab = 'recommendation', onTabChange }
   );
 }
 
-import { useEffect } from 'react';
-import { getAllProducts } from '../apiServer';
+// ----------------------------------------------------
+// Sub Components (ส่วนประกอบย่อย)
+// ----------------------------------------------------
 
 function FertilizerRecommendation() {
   const [cropType, setCropType] = useState('');
@@ -66,6 +73,7 @@ function FertilizerRecommendation() {
   useEffect(() => {
     if (showResults) {
       setLoading(true);
+      // ถ้ายังไม่มี apiServer ให้ comment block นี้ไว้ก่อน
       getAllProducts()
         .then(res => setProducts(res.data.data || []))
         .catch(err => setError('ไม่สามารถโหลดข้อมูลสินค้าได้'))
@@ -79,7 +87,6 @@ function FertilizerRecommendation() {
     }
   };
 
-  // Map cropType to Thai
   const cropTypeThai: Record<string, string> = {
     vegetables: 'ผักใบ',
     fruits: 'ผลไม้',
@@ -256,10 +263,96 @@ function NPKCalculatorContent() {
   };
 
   const npkData: Record<string, { n: number; p: number; k: number }> = {
-    chicken: { n: 3.5, p: 3.0, k: 1.8 },
-    cow: { n: 2.5, p: 1.8, k: 2.1 },
-    pig: { n: 3.8, p: 3.2, k: 2.4 },
+    chicken: { n: 2.33, p: 2.52, k: 2.45 },
+    cow: { n: 1.40, p: 0.412, k: 1.65 },
+    pig: { n: 1.88, p: 3.50, k: 1.00 },
   };
+
+  // ฟังก์ชันคำนวณ Logic (Dynamic)
+  const getRecommendations = () => {
+    if (!animalType || !quantity || !feedType) return null;
+
+    const qtyNum = Number(quantity);
+    let plants: any[] = [];
+    let instructions: any[] = [];
+
+    switch (animalType) {
+      case 'chicken':
+        plants = [
+          { name: "ผักกินใบ/ผักสวนครัว", reason: "ไนโตรเจน (N) สูง ช่วยเร่งการเจริญเติบโตของลำต้นและใบได้ดีเยี่ยม" },
+          { name: "ไม้ผล (ช่วงสะสมอาหาร)", reason: "มีฟอสฟอรัส (P) และโพแทสเซียม (K) สูง ช่วยในการสร้างดอกและผล" },
+          { name: "พืชไร่ (ข้าวโพด/อ้อย)", reason: "ธาตุอาหารครบถ้วน เหมาะกับพืชที่ต้องการปุ๋ยปริมาณมาก" }
+        ];
+        instructions.push({
+          step: 1,
+          title: "การหมัก (สำคัญมาก)",
+          desc: "มูลไก่มีความเค็มและกรดสูง (Uric acid) ต้องหมักอย่างน้อย 1-2 เดือนเพื่อให้คลายความร้อนและลดความเป็นกรด"
+        });
+        break;
+      case 'cow':
+        plants = [
+          { name: "พืชกินใบระยะต้นกล้า", reason: "ค่า N ไม่สูงเกินไป ไม่ทำให้ต้นกล้า 'น็อคปุ๋ย' (Fertilizer Burn)" },
+          { name: "พืชตระกูลหญ้า", reason: "ช่วยบำรุงต้นและใบอย่างค่อยเป็นค่อยไป" },
+          { name: "ไม้ดัด/ไม้ประดับ", reason: "เน้นบำรุงดินให้ร่วนซุย รากเดินดี เหมาะกับไม้ที่ต้องการดินโปร่ง" }
+        ];
+        instructions.push({
+          step: 1,
+          title: "การเตรียมดิน",
+          desc: "มูลวัวเป็น 'ปุ๋ยเย็น' เหมาะมากสำหรับการรองก้นหลุมก่อนปลูกเพื่อปรับโครงสร้างดินเหนียวหรือดินทราย"
+        });
+        break;
+      case 'pig':
+        plants = [
+          { name: "พืชดอก/ไม้ดอก", reason: "ฟอสฟอรัส (P) สูงถึง 3.50% ช่วยกระตุ้นการออกดอกและระบบรากได้ดีที่สุด" },
+          { name: "พืชหัว (มัน/เผือก)", reason: "ช่วยพัฒนาระบบรากและหัว แต่ควรเสริม K เพิ่มเติมหากต้องการเน้นขนาดหัว" },
+          { name: "ผักกินผล (มะเขือ/พริก)", reason: "เร่งการติดดอกออกผล" }
+        ];
+        instructions.push({
+          step: 1,
+          title: "การจัดการ",
+          desc: "มูลสุกรมีความชื้นสูง ควรตากแห้งหรือเข้าเครื่องอัดเม็ดก่อนใช้ เพื่อลดกลิ่นและเชื้อโรค"
+        });
+        break;
+    }
+
+    if (feedType === 'concentrate') {
+      instructions.push({
+        step: 2,
+        title: "ความเข้มข้นสูง (อาหารข้น)",
+        desc: "เนื่องจากสัตว์กินอาหารข้น มูลจะมีธาตุอาหารตกค้างสูง ควรใช้น้อยกว่าอัตราปกติเล็กน้อยในช่วงแรกเพื่อดูอาการพืช"
+      });
+    } else if (feedType === 'grass') {
+      instructions.push({
+        step: 2,
+        title: "เน้นอินทรียวัตถุ (หญ้า/ฟาง)",
+        desc: "มูลจะมีกากใยสูงมาก ดีต่อการแก้ดินแน่น แต่ธาตุอาหารอาจปล่อยออกมาช้ากว่าปกติ"
+      });
+    } else {
+      instructions.push({
+        step: 2,
+        title: "การใช้ทั่วไป (อาหารผสม)",
+        desc: "สามารถใช้อัตราส่วนมาตรฐานได้ตามคำแนะนำทั่วไป"
+      });
+    }
+
+    if (qtyNum > 1000) {
+      instructions.push({
+        step: 3,
+        title: "การจัดการปริมาณมาก (>1 ตัน)",
+        desc: `ปริมาณ ${qtyNum} กก. แนะนำให้ใช้เครื่องหว่านปุ๋ยหรือไถกลบพร้อมเตรียมดินแปลงใหญ่ เพื่อความสม่ำเสมอ`
+      });
+    } else {
+      instructions.push({
+        step: 3,
+        title: "การจัดการปริมาณน้อย",
+        desc: `ปริมาณ ${qtyNum} กก. เหมาะสำหรับโรยรอบทรงพุ่มหรือผสมดินปลูกในกระถาง`
+      });
+    }
+
+    return { plants, instructions };
+  };
+
+  const recommendations = showResults ? getRecommendations() : null;
 
   return (
     <div className="space-y-6">
@@ -272,7 +365,6 @@ function NPKCalculatorContent() {
         <p className="text-gray-600">ประมวลคำคุณภาพทางเคมีของเสียจากชนิดสัตว์และปริมาณ</p>
       </div>
 
-      {/* Info Box */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
         <Leaf className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div>
@@ -280,12 +372,11 @@ function NPKCalculatorContent() {
             <strong>ระบบประมวลผลค่า NPK โดยประมาณจากชนิดสัตว์และอาหารที่ให้</strong>
           </p>
           <p className="text-xs text-blue-700">
-            💡 <strong>เคล็ดลับ:</strong> ค่าที่ได้เป็นการประมาณการเบื้องต้น ควรตรวจวิเคราะห์เพื่อความแม่นยำมากยิ่งขึ้นต้องได้
+            💡 <strong>เคล็ดลับ:</strong> ค่าที่ได้เป็นการประมาณการเบื้องต้น ควรตรวจวิเคราะห์เพื่อความแม่นยำมากยิ่งขึ้น
           </p>
         </div>
       </div>
 
-      {/* Input Form */}
       <Card>
         <CardHeader>
           <CardTitle>ข้อมูลสำหรับของคุณ</CardTitle>
@@ -342,11 +433,8 @@ function NPKCalculatorContent() {
         </CardContent>
       </Card>
 
-      {/* Results */}
-
-      {showResults && animalType && (
+      {showResults && animalType && recommendations && (
         <>
-          {/* Review Card */}
           <Card className="mb-4">
             <CardHeader>
               <CardTitle>สรุปข้อมูลที่คุณกรอก</CardTitle>
@@ -366,7 +454,6 @@ function NPKCalculatorContent() {
             </CardContent>
           </Card>
 
-          {/* NPK Result Card */}
           <Card>
             <CardHeader>
               <CardTitle>ผลการคำนวณค่า NPK</CardTitle>
@@ -417,80 +504,50 @@ function NPKCalculatorContent() {
           <Card>
             <CardHeader>
               <CardTitle>พืชที่เหมาะสม</CardTitle>
-              <CardDescription>พืชที่แนะนำสำหรับค่า NPK นี้</CardDescription>
+              <CardDescription>
+                วิเคราะห์จากสัดส่วน NPK ของมูล{animalType === 'chicken' ? 'ไก่' : animalType === 'cow' ? 'โค' : 'สุกร'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white border rounded-lg p-4">
-                  <p className="text-sm text-gray-900 mb-2">ผักใบเขียว</p>
-                  <p className="text-xs text-gray-600">
-                    เช่น ผักกาด ผักชี ต้องการ N สูง
-                  </p>
-                </div>
-                <div className="bg-white border rounded-lg p-4">
-                  <p className="text-sm text-gray-900 mb-2">ผักผลไม้</p>
-                  <p className="text-xs text-gray-600">
-                    เช่น มะเขือเทศ พริก ต้องการ P สูง
-                  </p>
-                </div>
-                <div className="bg-white border rounded-lg p-4">
-                  <p className="text-sm text-gray-900 mb-2">พืชหัว</p>
-                  <p className="text-xs text-gray-600">
-                    เช่น หัวหอม กระเทียม ต้องการ K สูง
-                  </p>
-                </div>
-                <div className="bg-white border rounded-lg p-4">
-                  <p className="text-sm text-gray-900 mb-2">ข้าว ธัญพืช</p>
-                  <p className="text-xs text-gray-600">
-                    ต้องการ NPK ที่สมดุลตามช่วงเจริญเติบโต
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recommendations.plants.map((plant, index) => (
+                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-green-400 transition-colors">
+                    <div className="flex items-start gap-2">
+                      <Sprout className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 mb-1">{plant.name}</p>
+                        <p className="text-xs text-gray-600">{plant.reason}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>คำแนะนำการใช้</CardTitle>
+              <CardTitle>คำแนะนำการใช้เฉพาะคุณ</CardTitle>
+              <CardDescription>ปรับปรุงตามชนิดอาหารและปริมาณ {quantity} กก.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 text-sm">
-                    1
+                {recommendations.instructions.map((item, index) => (
+                  <div key={index} className="flex gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
+                      index === 0 ? 'bg-green-100 text-green-700' : 
+                      index === 1 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                    }`}>
+                      {item.step}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 mb-1">{item.title}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-900 mb-1">หมักปุ๋ยให้สุก</p>
-                    <p className="text-xs text-gray-600">
-                      ควรหมักมูลสัตว์ให้สุกก่อนนำไปใช้ อย่างน้อย 30-45 วัน
-                      เพื่อฆ่าเชื้อโรคและเพิ่มประสิทธิภาพ
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 text-sm">
-                    2
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-900 mb-1">อัตราการใช้</p>
-                    <p className="text-xs text-gray-600">
-                      แนะนำใส่ปุ๋ยคอก 500-1,000 กก./ไร่ ขึ้นอยู่กับชนิดพืชและสภาพดิน
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 text-sm">
-                    3
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-900 mb-1">ระยะเวลาที่เหมาะสม</p>
-                    <p className="text-xs text-gray-600">
-                      ควรใส่ก่อนหว่านหรือปลูก 7-14 วัน และพรวนคลุกเคล้ากับดิน
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
