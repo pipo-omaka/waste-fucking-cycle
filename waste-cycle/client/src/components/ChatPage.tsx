@@ -421,6 +421,22 @@ export function ChatPage({
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Confirm Sale Button (Mobile) */}
+                  {selectedPost && onConfirmSale && (
+                    <div className="p-4 border-t bg-white flex items-center justify-between">
+                      <Button
+                        className="bg-green-600 hover:bg-green-700"
+                        disabled={selectedPost.sold || isConfirmed}
+                        onClick={() => onConfirmSale(selectedPost.id, selectedRoom.id)}
+                      >
+                        {selectedPost.sold || isConfirmed ? 'ขายแล้ว' : 'ยืนยันการขาย'}
+                      </Button>
+                      {selectedPost.sold && (
+                        <Badge className="bg-red-500 text-white ml-2">ขายแล้ว</Badge>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 p-4 border-t bg-white">
                     <Input
                       value={newMessage}
@@ -641,6 +657,22 @@ export function ChatPage({
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Confirm Sale Button (Desktop) */}
+                {selectedPost && onConfirmSale && (
+                  <div className="p-4 border-t bg-white flex items-center justify-between">
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={selectedPost.sold || isConfirmed}
+                      onClick={() => onConfirmSale(selectedPost.id, selectedRoom.id)}
+                    >
+                      {selectedPost.sold || isConfirmed ? 'ขายแล้ว' : 'ยืนยันการขาย'}
+                    </Button>
+                    {selectedPost.sold && (
+                      <Badge className="bg-red-500 text-white ml-2">ขายแล้ว</Badge>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 p-4 border-t bg-white">
                   <Input
