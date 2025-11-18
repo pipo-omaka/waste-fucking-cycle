@@ -51,7 +51,8 @@ export function AdminPanel() {
       setLoadingUsers(true);
       setUsersError(null);
       try {
-        const res = await (await import('../apiServer')).getAllUsers();
+        const api = await import('../apiServer');
+        const res = await api.getAllUsers();
         if (!mounted) return;
         const fetched = res.data.users || [];
         // Normalize to UserData shape where possible
@@ -92,6 +93,17 @@ export function AdminPanel() {
 
     return () => { mounted = false; };
   }, []);
+
+  const handleVerifyUser = async (userId: string) => {
+    try {
+      const api = await import('../apiServer');
+      await api.updateUserById(userId, { verified: true });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, verified: true } : u));
+    } catch (err: any) {
+      console.error('Failed to verify user:', err);
+      alert(err?.response?.data?.message || 'ไม่สามารถยืนยันผู้ใช้ได้');
+    }
+  };
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -239,7 +251,7 @@ export function AdminPanel() {
                           <TableCell>
                             <div className="flex gap-2">
                               {!user.verified && (
-                                <Button size="sm" variant="outline">
+                                <Button size="sm" variant="outline" onClick={() => handleVerifyUser(user.id)}>
                                   ยืนยัน
                                 </Button>
                               )}

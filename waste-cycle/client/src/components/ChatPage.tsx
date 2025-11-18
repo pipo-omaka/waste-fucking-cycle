@@ -266,6 +266,22 @@ export function ChatPage({
     }
   };
 
+  const handleConfirmSale = async () => {
+    if (!selectedPost || !selectedRoom || !onConfirmSale) return;
+
+    try {
+      await onConfirmSale(selectedPost.id, selectedRoom.id);
+
+      // Update UI after confirmation
+      setSelectedRoomId(null);
+      setShowChatView(false);
+      alert('ยืนยันการขายสำเร็จ!');
+    } catch (error) {
+      console.error('Error confirming sale:', error);
+      alert('ไม่สามารถยืนยันการขายได้ กรุณาลองใหม่');
+    }
+  };
+
   // Get display name for other participant
   const getDisplayName = (room: ChatRoom) => {
     if (room.otherParticipantName) return room.otherParticipantName;

@@ -535,7 +535,7 @@ export default function App() {
         
         // CRITICAL: Check if a chat room already exists between current user and seller
         // This prevents creating duplicate rooms (ONE room per user pair)
-        const existingRoom = findChatRoomBetweenUsers(chatRooms, currentUserId, sellerId);
+        const existingRoom = findChatRoomBetweenUsers(chatRooms, currentUserId, sellerId, postId);
         
         if (existingRoom) {
           // Room already exists, use it

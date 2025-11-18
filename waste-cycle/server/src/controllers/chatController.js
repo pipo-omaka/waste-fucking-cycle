@@ -99,67 +99,82 @@ const decodeTokenToUid = async (token) => {
 };
 
 /**
- * Generate unique chat room ID from two user IDs
- * CRITICAL: Uses ONLY user IDs (not product ID) to ensure ONE room per user pair
- * MULTI-USER: Creates consistent room ID regardless of who initiates
- * Uses SHA-256 hash to ensure ID is under 1500 bytes (Firestore limit)
- * 
+ * Generate unique chat room ID from two user IDs and optional productId.
+ * When productId is provided the generated ID will include it, allowing
+ * multiple rooms between the same participants for different products.
+ * Uses SHA-256 hash to ensure ID is compact and safe for Firestore.
+ *
  * @param {string} userId1 - First user ID
  * @param {string} userId2 - Second user ID
+ * @param {string|null} productId - Optional product ID to scope the room
  * @returns {string} Unique chat room ID (hashed, 32 chars)
  */
-const generateChatRoomId = (userId1, userId2) => {
+const generateChatRoomId = (userId1, userId2, productId = null) => {
   // Sort user IDs alphabetically to ensure consistency
-  // This ensures the same room ID is generated regardless of who initiates
   const sortedIds = [String(userId1), String(userId2)].sort();
-  
-  // Create a unique string from participants ONLY (no product ID)
-  // This ensures ONE room per user pair
-  const uniqueString = `${sortedIds[0]}_${sortedIds[1]}`;
-  
-  // Use SHA-256 hash to create a short, unique ID (32 characters)
-  // This ensures the ID is always under 1500 bytes (Firestore limit)
+
+  // Include productId when provided so different products produce different room IDs
+  const uniqueString = productId
+    ? `${sortedIds[0]}_${sortedIds[1]}_product_${String(productId)}`
+    : `${sortedIds[0]}_${sortedIds[1]}`;
+
   const hash = crypto.createHash('sha256').update(uniqueString).digest('hex');
-  
-  // Use first 32 characters of hash (still unique enough, and much shorter)
   return hash.substring(0, 32);
 };
 
 /**
- * Find existing chat room between two users
- * CRITICAL: Searches by participants array to find existing room
- * 
+ * Find existing chat room between two users.
+ * Updated behavior: prefer rooms that match the same `productId` so
+ * the same two users can have separate chat rooms per product.
+ * If `productId` is provided we first search for a room with both
+ * participants AND the same productId. If none found, fall back to
+ * searching for any room that contains both users (legacy behavior).
+ *
  * @param {string} userId1 - First user ID
  * @param {string} userId2 - Second user ID
+ * @param {string|null} productId - Optional product ID to scope the search
  * @returns {Promise<FirebaseFirestore.DocumentSnapshot|null>} - Existing room doc or null
  */
-const findExistingChatRoom = async (userId1, userId2) => {
+const findExistingChatRoom = async (userId1, userId2, productId = null) => {
   const userId1Str = String(userId1);
   const userId2Str = String(userId2);
-  
-  // Search for rooms where both users are participants
-  // We need to check both possible orders since participants might be stored in different orders
+
+  // Helper to check if a doc contains both participants
+  const docHasBothParticipants = (doc) => {
+    const data = doc.data();
+    const participants = cleanParticipantsArray(data.participants || []);
+    const hasUser1 = participants.includes(userId1Str);
+    const hasUser2 = participants.includes(userId2Str);
+    return hasUser1 && hasUser2;
+  };
+
+  // If productId provided, try to find a room for this product first
+  if (productId) {
+    const prodSnapshot = await db.collection('chatRooms')
+      .where('productId', '==', String(productId))
+      .where('participants', 'array-contains', userId1Str)
+      .get();
+
+    for (const doc of prodSnapshot.docs) {
+      if (docHasBothParticipants(doc)) {
+        console.log(`✅ Found existing chat room for product ${productId}: ${doc.id}`);
+        return doc;
+      }
+    }
+  }
+
+  // Fallback: find any room that contains both users (legacy behavior)
   const allRoomsSnapshot = await db.collection('chatRooms')
     .where('participants', 'array-contains', userId1Str)
     .get();
-  
-  // Filter to find rooms that contain BOTH users
+
   for (const doc of allRoomsSnapshot.docs) {
-    const data = doc.data();
-    // CRITICAL: Clean participants array to remove JWT tokens
-    const participants = cleanParticipantsArray(data.participants || []);
-    
-    // Check if both users are in participants
-    const hasUser1 = participants.includes(userId1Str);
-    const hasUser2 = participants.includes(userId2Str);
-    
-    if (hasUser1 && hasUser2 && participants.length === 2) {
-      // Found existing room with both users
+    if (docHasBothParticipants(doc)) {
       console.log(`✅ Found existing chat room: ${doc.id} for users ${userId1Str} and ${userId2Str}`);
       return doc;
     }
   }
-  
+
   return null;
 };
 
@@ -304,9 +319,9 @@ const createChatRoom = asyncHandler(async (req, res) => {
   console.log(`📝 createChatRoom - buyerId: ${buyerId} (length: ${buyerId.length})`);
   console.log(`📝 createChatRoom - sellerId: ${sellerId} (length: ${sellerId.length})`);
 
-  // CRITICAL: Find existing chat room between these two users (regardless of product)
-  // This ensures ONE room per user pair
-  const existingRoomDoc = await findExistingChatRoom(buyerId, sellerId);
+  // CRITICAL: Try to find an existing chat room scoped to the product first
+  // This allows the same two users to have separate chat rooms per product.
+  const existingRoomDoc = await findExistingChatRoom(buyerId, sellerId, productId);
 
   if (existingRoomDoc) {
     // Room exists, return it
@@ -359,9 +374,9 @@ const createChatRoom = asyncHandler(async (req, res) => {
     return;
   }
 
-  // Generate unique chat room ID (using ONLY user IDs, not product ID)
-  // This ensures ONE room per user pair
-  const chatRoomId = generateChatRoomId(buyerId, sellerId);
+  // Generate unique chat room ID. Include productId so same users can have
+  // separate rooms per product.
+  const chatRoomId = generateChatRoomId(buyerId, sellerId, productId);
 
   // Double-check: Make sure room doesn't exist with this ID
   const chatRoomRef = db.collection('chatRooms').doc(chatRoomId);

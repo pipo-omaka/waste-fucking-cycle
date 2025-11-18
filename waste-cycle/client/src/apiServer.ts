@@ -291,6 +291,15 @@ export const getAllUsers = () => {
 };
 
 /**
+ * Update a user by ID (admin)
+ * @param id - user document id
+ * @param data - partial user fields to update (e.g., { verified: true })
+ */
+export const updateUserById = (id: string, data: any) => {
+  return api.put(`/users/${id}`, data);
+};
+
+/**
  * Admin dashboard aggregated stats
  */
 export const getAdminDashboard = () => {
