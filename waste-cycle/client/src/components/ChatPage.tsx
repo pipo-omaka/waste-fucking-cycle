@@ -208,6 +208,13 @@ export function ChatPage({
   };
 
   const handleRoomClick = (roomId: string) => {
+    // If user clicks the currently selected room, toggle it closed
+    if (selectedRoomId === roomId) {
+      setSelectedRoomId(null);
+      setShowChatView(false);
+      return;
+    }
+
     setSelectedRoomId(roomId);
     setShowChatView(true);
   };
@@ -429,8 +436,12 @@ export function ChatPage({
                         disabled={selectedPost.sold || isConfirmed}
                         onClick={() => onConfirmSale(selectedPost.id, selectedRoom.id)}
                       >
-                        {selectedPost.sold || isConfirmed ? 'ขายแล้ว' : 'ยืนยันการขาย'}
+                        {selectedPost.sold ? 'ขายแล้ว' : (isConfirmed ? 'กำลังดีล' : 'ยืนยันการขาย')}
                       </Button>
+                      {/* Status badge: show 'กำลังดีล' while confirmed but not yet finalized, else 'ขายแล้ว' when sold */}
+                      {isConfirmed && !selectedPost.sold && (
+                        <Badge className="bg-yellow-400 text-black ml-2">กำลังดีล</Badge>
+                      )}
                       {selectedPost.sold && (
                         <Badge className="bg-red-500 text-white ml-2">ขายแล้ว</Badge>
                       )}
@@ -447,12 +458,13 @@ export function ChatPage({
                           handleSend();
                         }
                       }}
-                      placeholder="พิมพ์ข้อความ..."
+                      placeholder={isConfirmed || selectedPost?.sold ? 'ไม่สามารถส่งข้อความได้ ขณะกำลังดีล/ขายแล้ว' : 'พิมพ์ข้อความ...'}
                       className="flex-1"
+                      disabled={Boolean(isConfirmed || selectedPost?.sold)}
                     />
                     <Button
                       onClick={handleSend}
-                      disabled={!newMessage.trim()}
+                      disabled={Boolean(!newMessage.trim() || isConfirmed || selectedPost?.sold)}
                       className="bg-green-600 hover:bg-green-700"
                       size="icon"
                     >
@@ -509,7 +521,7 @@ export function ChatPage({
                         return (
                           <div
                             key={room.id}
-                            onClick={() => setSelectedRoomId(room.id)}
+                            onClick={() => handleRoomClick(room.id)}
                             className={`p-4 hover:bg-gray-50 cursor-pointer ${
                               selectedRoomId === room.id ? 'bg-gray-100' : ''
                             }`}
@@ -562,7 +574,7 @@ export function ChatPage({
                         return (
                           <div
                             key={room.id}
-                            onClick={() => setSelectedRoomId(room.id)}
+                            onClick={() => handleRoomClick(room.id)}
                             className={`p-4 hover:bg-gray-50 cursor-pointer ${
                               selectedRoomId === room.id ? 'bg-gray-100' : ''
                             }`}

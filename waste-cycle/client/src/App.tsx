@@ -33,6 +33,7 @@ import api, {
   deleteProduct,
   getChatRooms,         // MULTI-USER: Get chat rooms via API
   createChatRoom,       // MULTI-USER: Create or get chat room
+  createBooking,
 } from './apiServer'; // แก้ไข Path
 import { Recycle } from 'lucide-react';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -567,6 +568,42 @@ export default function App() {
       alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
     }
   };
+
+  const handleCreateBooking = async (postId: string) => {
+    try {
+      if (!user || !user.uid) {
+        alert('กรุณาเข้าสู่ระบบก่อนทำการจอง');
+        return;
+      }
+
+      const post = allPosts.find(p => p.id === postId);
+      if (!post) {
+        alert('ไม่พบโพสต์ที่ต้องการจอง');
+        return;
+      }
+
+      const bookingData = {
+        productId: postId,
+        buyerId: String(user.uid || user.id),
+        sellerId: String(post.userId || ''),
+        quantity: 1,
+        bookingDate: new Date().toISOString(),
+      };
+
+      const res = await createBooking(bookingData);
+      if (res?.data?.success) {
+        alert('ส่งคำขอจองสำเร็จ ผู้ขายจะติดต่อกลับ');
+        // Optionally navigate to bookings
+        setCurrentPage('bookings');
+      } else {
+        alert('เกิดข้อผิดพลาดในการจอง กรุณาลองใหม่');
+      }
+    } catch (err: any) {
+      console.error('Failed to create booking:', err);
+      const msg = err?.response?.data?.message || err?.message || 'ไม่สามารถสร้างการจองได้';
+      alert(msg);
+    }
+  };
   
   const handleOpenChatDialog = (postId: string) => {
     setChatPostId(postId);
@@ -744,6 +781,7 @@ export default function App() {
             onDelete={() => handleDeletePost(currentPost.id)}
             isMyPost={String(currentPost.userId) === String(user!.id || user!.uid)}
             onChat={() => handleOpenChat(currentPost.id)}
+            onBook={() => handleCreateBooking(currentPost.id)}
           />
         )}
         {currentPage === 'bookings' && user!.role !== 'admin' && <BookingPage user={user!} />}
