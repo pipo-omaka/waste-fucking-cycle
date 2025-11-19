@@ -267,7 +267,16 @@ export function ProfilePage({ user, posts, onViewDetail, onEdit, onDelete, onUpd
                       </div>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>มกราคม 2024</span>
+                        <span>
+                          {(user as any).createdAt 
+                            ? new Date((user as any).createdAt).toLocaleDateString('th-TH', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                            : 'มกราคม 2024'
+                          }
+                        </span>
                       </div>
                     </div>
                   </>
