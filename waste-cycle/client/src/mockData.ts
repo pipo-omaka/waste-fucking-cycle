@@ -17,6 +17,169 @@ const mockUserIds = [
   'mock-user-farm8',
 ];
 
+// Mock booking/transaction data
+export interface MockBooking {
+  id: string;
+  productId: string;
+  productTitle: string;
+  farmName: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  totalPrice: number;
+  bookingDate: string;
+  deliveryDate?: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  buyerId?: string;
+  sellerId?: string;
+}
+
+// Generate mock completed deals for a user
+export const generateMockBookings = (userId: string): { sold: MockBooking[], bought: MockBooking[] } => {
+  const sold: MockBooking[] = [
+    {
+      id: 'booking-sold-1',
+      productId: 'mock-post-4',
+      productTitle: 'มูลหมูหมัก 800 กก.',
+      farmName: 'ฟาร์มสุกรคุณภาพ',
+      quantity: 800,
+      unit: 'กก.',
+      price: 18,
+      totalPrice: 14400,
+      bookingDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+      deliveryDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'completed',
+      buyerId: 'buyer-user-1',
+      sellerId: userId,
+    },
+    {
+      id: 'booking-sold-2',
+      productId: 'mock-post-1',
+      productTitle: 'มูลวัวแห้งคุณภาพดี 500 กก.',
+      farmName: 'ฟาร์มโชคดี',
+      quantity: 300,
+      unit: 'กก.',
+      price: 15,
+      totalPrice: 4500,
+      bookingDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'confirmed',
+      buyerId: 'buyer-user-2',
+      sellerId: userId,
+    },
+    {
+      id: 'booking-sold-3',
+      productId: 'mock-post-2',
+      productTitle: 'มูลไก่หมัก 1 ตัน',
+      farmName: 'ฟาร์มเกษตรอินทรีย์',
+      quantity: 500,
+      unit: 'กก.',
+      price: 12,
+      totalPrice: 6000,
+      bookingDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+      deliveryDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'completed',
+      buyerId: 'buyer-user-3',
+      sellerId: userId,
+    },
+  ];
+
+  const bought: MockBooking[] = [
+    {
+      id: 'booking-bought-1',
+      productId: 'mock-post-6',
+      productTitle: 'มูลวัวสด 1,200 กก.',
+      farmName: 'ฟาร์มโคนมเชียงใหม่',
+      quantity: 600,
+      unit: 'กก.',
+      price: 10,
+      totalPrice: 6000,
+      bookingDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+      deliveryDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'completed',
+      buyerId: userId,
+      sellerId: mockUserIds[5],
+    },
+    {
+      id: 'booking-bought-2',
+      productId: 'mock-post-8',
+      productTitle: 'มูลไก่ไข่แห้ง 600 กก.',
+      farmName: 'ฟาร์มไก่ไข่แม่ริม',
+      quantity: 400,
+      unit: 'กก.',
+      price: 14,
+      totalPrice: 5600,
+      bookingDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'confirmed',
+      buyerId: userId,
+      sellerId: mockUserIds[7],
+    },
+  ];
+
+  return { sold, bought };
+};
+
+// Mock business connections/network
+export interface MockConnection {
+  id: string;
+  name: string;
+  farmName: string;
+  avatar?: string;
+  dealCount: number;
+  totalValue: number;
+  lastDealDate: string;
+  rating: number;
+}
+
+export const generateMockConnections = (): MockConnection[] => {
+  return [
+    {
+      id: 'conn-1',
+      name: 'สมชาย ใจดี',
+      farmName: 'ฟาร์มโคนมเชียงใหม่',
+      dealCount: 5,
+      totalValue: 28000,
+      lastDealDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+      rating: 4.8,
+    },
+    {
+      id: 'conn-2',
+      name: 'สมหญิง รักษ์ดิน',
+      farmName: 'สวนผักปลอดสาร',
+      dealCount: 3,
+      totalValue: 15000,
+      lastDealDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+      rating: 4.5,
+    },
+    {
+      id: 'conn-3',
+      name: 'ประยุทธ์ เกษตรกร',
+      farmName: 'ฟาร์มไก่ไข่แม่ริม',
+      dealCount: 8,
+      totalValue: 45000,
+      lastDealDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      rating: 4.9,
+    },
+    {
+      id: 'conn-4',
+      name: 'วิชัย มั่งคั่ง',
+      farmName: 'ฟาร์มสุกรคุณภาพ',
+      dealCount: 2,
+      totalValue: 12000,
+      lastDealDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      rating: 4.6,
+    },
+    {
+      id: 'conn-5',
+      name: 'สุดา เจริญสุข',
+      farmName: 'ฟาร์มเกษตรอินทรีย์',
+      dealCount: 4,
+      totalValue: 22000,
+      lastDealDate: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString(),
+      rating: 4.7,
+    },
+  ];
+};
+
 // Generate mock posts with real images
 export const generateMockPosts = (currentUserId: string): Post[] => {
   const mockPosts: Post[] = [
@@ -87,7 +250,7 @@ export const generateMockPosts = (currentUserId: string): Post[] => {
       location: { lat: 18.7800, lng: 98.9700 },
       address: '789 ถนนลำปาง-เชียงใหม่ ตำบลป่าแดด อำเภอแม่ริม จังหวัดเชียงใหม่ 50180',
       distance: 12.3,
-      verified: false, // รอตรวจสอบ
+      verified: false,
       npk: { n: 1.5, p: 0.8, k: 2.5 },
       feedType: '',
       description: 'เศษพืชจากแปลงผักสลัด สดใหม่ ยังไม่เน่าเสีย เหมาะสำหรับทำปุ๋ยหมักหรืออาหารสัตว์',
@@ -129,7 +292,7 @@ export const generateMockPosts = (currentUserId: string): Post[] => {
       rating: 4.6,
       reviewCount: 18,
       createdDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      sold: true, // ขายแล้ว
+      sold: true,
     },
     {
       id: 'mock-post-5',
@@ -143,7 +306,7 @@ export const generateMockPosts = (currentUserId: string): Post[] => {
       location: { lat: 18.7900, lng: 98.9900 },
       address: '555 ถนนนิมมานเหมินทร์ ตำบลสุเทพ อำเภอเมือง จังหวัดเชียงใหม่ 50200',
       distance: 3.5,
-      verified: false, // รอตรวจสอบ
+      verified: false,
       npk: { n: 1.2, p: 0.5, k: 0.8 },
       feedType: '',
       description: 'เศษอาหารจากโรงแรม ผ่านการคัดแยกแล้ว ไม่มีพลาสติกหรือของมีคม เหมาะสำหรับทำปุ๋ยหมัก',
@@ -201,7 +364,7 @@ export const generateMockPosts = (currentUserId: string): Post[] => {
       location: { lat: 18.8100, lng: 99.0200 },
       address: '999 หมู่ 9 ตำบลสันทรายน้อย อำเภอสันทราย จังหวัดเชียงใหม่ 50210',
       distance: 22.5,
-      verified: false, // รอตรวจสอบ
+      verified: false,
       npk: { n: 1.0, p: 0.3, k: 0.5 },
       feedType: '',
       description: 'เศษใบไม้และกิ่งไม้จากการตัดแต่งสวน ผ่านการบดแล้ว เหมาะสำหรับทำปุ๋ยหมักหรือคลุมดิน',
